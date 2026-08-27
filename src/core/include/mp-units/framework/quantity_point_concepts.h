@@ -33,6 +33,15 @@
 
 namespace mp_units {
 
+/**
+ * @brief A point origin located at the zero point of a quantity specification
+ *
+ * Defines the root of a coordinate frame from which quantity points measured in terms of `QS` are
+ * expressed. Optional trailing arguments may specify additional policies, such as bounds checking.
+ *
+ * @tparam QS quantity specification of the quantities measured from this origin
+ * @tparam Args optional policy arguments (e.g. a bounds policy)
+ */
 MP_UNITS_EXPORT template<QuantitySpec auto QS, auto... Args>
 struct absolute_point_origin;
 
@@ -74,6 +83,16 @@ constexpr bool is_quantity_point = false;
 MP_UNITS_EXPORT template<typename T>
 concept QuantityPoint = detail::is_quantity_point<T>;
 
+/**
+ * @brief A point origin defined relative to another quantity point
+ *
+ * Its absolute origin is the absolute origin of `QP`, and it is displaced from that absolute origin by
+ * the value of `QP` itself, which allows users to define new origins in terms of previously defined
+ * quantity points.
+ *
+ * @tparam QP the quantity point this origin is defined relative to
+ * @tparam Args optional policy arguments (e.g. a bounds policy)
+ */
 MP_UNITS_EXPORT template<QuantityPoint auto QP, auto... Args>
 struct relative_point_origin;
 

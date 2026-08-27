@@ -199,28 +199,52 @@ namespace mp_units {
 template<typename CharT, std::size_t N>
 class basic_fixed_string : public detail::fixed_string_iface {
 public:
+  /// The underlying null-terminated character storage (exposition only)
   CharT data_[N + 1] = {};  // exposition only
 
   // types
+
+  /// The character type used by the string
   using value_type = CharT;
+  /// Pointer to a character of the string
   using pointer = value_type*;
+  /// Pointer to a constant character of the string
   using const_pointer = const value_type*;
+  /// Reference to a character of the string
   using reference = value_type&;
+  /// Reference to a constant character of the string
   using const_reference = const value_type&;
+  /// Constant iterator over the string's elements
   using const_iterator = const value_type*;
+  /// Iterator type (same as `const_iterator`, as the string is immutable)
   using iterator = const_iterator;
+  /// Reverse iterator over the string's constant elements
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+  /// Reverse iterator type (same as `const_reverse_iterator`, as the string is immutable)
   using reverse_iterator = const_reverse_iterator;
+  /// Unsigned integer type used to represent sizes and indices
   using size_type = std::size_t;
+  /// Signed integer type used to represent iterator differences
   using difference_type = std::ptrdiff_t;
 
   // construction and assignment
+
+  /**
+   * @brief Constructs the string from exactly `N` individual characters
+   *
+   * @param chars The characters to store, in order
+   */
   template<std::same_as<CharT>... Chars>
     requires(sizeof...(Chars) == N) && (... && !std::is_pointer_v<Chars>)
   [[nodiscard]] constexpr explicit basic_fixed_string(Chars... chars) noexcept : data_{chars..., CharT{}}
   {
   }
 
+  /**
+   * @brief Constructs the string from a null-terminated character array literal
+   *
+   * @param txt The character array literal to copy from; must be null-terminated at index `N`
+   */
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
   [[nodiscard]] consteval explicit(false) basic_fixed_string(const CharT (&txt)[N + 1]) noexcept
   {
@@ -228,6 +252,12 @@ public:
     for (std::size_t i = 0; i < N; ++i) data_[i] = txt[i];
   }
 
+  /**
+   * @brief Constructs the string from a range of exactly `N` characters given by an iterator/sentinel pair
+   *
+   * @param begin Iterator to the first character
+   * @param end Sentinel marking the end of the character sequence
+   */
   template<std::input_iterator It, std::sentinel_for<It> S>
     requires std::same_as<std::iter_value_t<It>, CharT>
   [[nodiscard]] constexpr basic_fixed_string(It begin, S end)
@@ -236,34 +266,80 @@ public:
     for (auto it = data_; begin != end; ++begin, ++it) *it = *begin;
   }
 
+  /**
+   * @brief Constructs the string from an input range of exactly `N` characters
+   *
+   * @param from_range_tag Tag disambiguating this overload as taking a range
+   * @param r The range of characters to copy from
+   */
   template<std::ranges::input_range R>
     requires std::same_as<std::ranges::range_value_t<R>, CharT>
-  [[nodiscard]] constexpr basic_fixed_string(std::from_range_t, R&& r)
+  [[nodiscard]] constexpr basic_fixed_string([[maybe_unused]] std::from_range_t from_range_tag, R&& r)
   {
     MP_UNITS_PRECONDITION(std::ranges::size(r) == N);
     for (auto it = data_; auto&& v : std::forward<R>(r)) *it++ = std::forward<decltype(v)>(v);
   }
 
-  [[nodiscard]] constexpr basic_fixed_string(const basic_fixed_string&) noexcept = default;
-  constexpr basic_fixed_string& operator=(const basic_fixed_string&) noexcept = default;
+  /**
+   * @brief Copy constructor
+   *
+   * @param other The string to copy from
+   */
+  [[nodiscard]] constexpr basic_fixed_string(const basic_fixed_string& other) noexcept = default;
+  /**
+   * @brief Copy assignment operator
+   *
+   * @param other The string to copy from
+   * @return A reference to this string
+   */
+  constexpr basic_fixed_string& operator=(const basic_fixed_string& other) noexcept = default;
 
   // iterator support
+
+  /// An iterator to the first character of the string.
+  /// @return An iterator to the first character of the string
   [[nodiscard]] constexpr const_iterator begin() const noexcept { return data(); }
+  /// An iterator past the last character of the string.
+  /// @return An iterator past the last character of the string
   [[nodiscard]] constexpr const_iterator end() const noexcept { return data() + size(); }
+  /// A constant iterator to the first character of the string.
+  /// @return A constant iterator to the first character of the string
   [[nodiscard]] constexpr const_iterator cbegin() const noexcept { return begin(); }
+  /// A constant iterator past the last character of the string.
+  /// @return A constant iterator past the last character of the string
   [[nodiscard]] constexpr const_iterator cend() const noexcept { return end(); }
+  /// A reverse iterator to the last character of the string.
+  /// @return A reverse iterator to the last character of the string
   [[nodiscard]] constexpr const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
+  /// A reverse iterator preceding the first character of the string.
+  /// @return A reverse iterator preceding the first character of the string
   [[nodiscard]] constexpr const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+  /// A constant reverse iterator to the last character of the string.
+  /// @return A constant reverse iterator to the last character of the string
   [[nodiscard]] constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+  /// A constant reverse iterator preceding the first character of the string.
+  /// @return A constant reverse iterator preceding the first character of the string
   [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
   // capacity
+
+  /// The number of characters in the string
   static constexpr std::integral_constant<size_type, N> size{};
+  /// The number of characters in the string (same as `size`)
   static constexpr std::integral_constant<size_type, N> length{};
+  /// The maximum number of characters the string can hold (same as `size`, since the length is fixed)
   static constexpr std::integral_constant<size_type, N> max_size{};
+  /// Whether the string holds no characters
   static constexpr std::bool_constant<N == 0> empty{};
 
   // element access
+
+  /**
+   * @brief Accesses the character at the given position, without bounds checking
+   *
+   * @param pos Position of the character to return
+   * @return The character at position `pos`
+   */
   [[nodiscard]] constexpr const_reference operator[](size_type pos) const MP_UNITS_PRE(pos < N)
   {
     MP_UNITS_EXPECTS(pos < N);
@@ -271,6 +347,12 @@ public:
   }
 
 #if MP_UNITS_HOSTED
+  /**
+   * @brief Accesses the character at the given position, with bounds checking
+   *
+   * @param pos Position of the character to return
+   * @return The character at position `pos`
+   */
   [[nodiscard]] constexpr const_reference at(size_type pos) const
   {
     if (pos >= size()) throw std::out_of_range("basic_fixed_string::at");
@@ -278,11 +360,15 @@ public:
   }
 #endif
 
+  /// The first character of the string.
+  /// @return The first character of the string
   [[nodiscard]] constexpr const_reference front() const MP_UNITS_PRE(!empty())
   {
     MP_UNITS_EXPECTS(!empty());
     return (*this)[0];
   }
+  /// The last character of the string.
+  /// @return The last character of the string
   [[nodiscard]] constexpr const_reference back() const MP_UNITS_PRE(!empty())
   {
     MP_UNITS_EXPECTS(!empty());
@@ -290,6 +376,12 @@ public:
   }
 
   // modifiers
+
+  /**
+   * @brief Exchanges the contents of this string with those of `s`
+   *
+   * @param s The string to swap contents with
+   */
   constexpr void swap(basic_fixed_string& s) noexcept
   {
     // element-wise rather than `swap_ranges`: `begin()`/`end()` yield `const_iterator`, so the
@@ -302,35 +394,54 @@ public:
   }
 
   // string operations
+
+  /// A pointer to a null-terminated character array holding the string's contents.
+  /// @return A pointer to a null-terminated character array holding the string's contents
   [[nodiscard]] constexpr const_pointer c_str() const noexcept { return data(); }
+  /// A pointer to the underlying null-terminated character array.
+  /// @return A pointer to the underlying null-terminated character array
   [[nodiscard]] constexpr const_pointer data() const noexcept { return static_cast<const_pointer>(data_); }
+  /// A `std::basic_string_view` over the string's contents.
+  /// @return A `std::basic_string_view` over the string's contents
   [[nodiscard]] constexpr std::basic_string_view<CharT> view() const noexcept
   {
     return std::basic_string_view<CharT>(cbegin(), cend());
   }
+  /// Implicit conversion to a `std::basic_string_view` over the string's contents.
+  /// @return A `std::basic_string_view` over the string's contents
   // NOLINTNEXTLINE(*-explicit-conversions, google-explicit-constructor)
   [[nodiscard]] constexpr explicit(false) operator std::basic_string_view<CharT>() const noexcept { return view(); }
 };
 
 // deduction guides
+
+/// Deduces `basic_fixed_string` from a pack of individual characters
 template<typename CharT, std::same_as<CharT>... Rest>
 basic_fixed_string(CharT, Rest...) -> basic_fixed_string<CharT, 1 + sizeof...(Rest)>;
 
+/// Deduces `basic_fixed_string` from a null-terminated character array literal
 template<typename CharT, std::size_t N>
 basic_fixed_string(const CharT (&str)[N]) -> basic_fixed_string<CharT, N - 1>;
 
+/// Deduces `basic_fixed_string` from a `std::array` of characters
 template<typename CharT, std::size_t N>
 basic_fixed_string(std::from_range_t, std::array<CharT, N>) -> basic_fixed_string<CharT, N>;
 
 // typedef-names
+
+/// `basic_fixed_string` specialized for `char`
 template<std::size_t N>
 using fixed_string = basic_fixed_string<char, N>;
+/// `basic_fixed_string` specialized for `char8_t`
 template<std::size_t N>
 using fixed_u8string = basic_fixed_string<char8_t, N>;
+/// `basic_fixed_string` specialized for `char16_t`
 template<std::size_t N>
 using fixed_u16string = basic_fixed_string<char16_t, N>;
+/// `basic_fixed_string` specialized for `char32_t`
 template<std::size_t N>
 using fixed_u32string = basic_fixed_string<char32_t, N>;
+/// `basic_fixed_string` specialized for `wchar_t`
 template<std::size_t N>
 using fixed_wstring = basic_fixed_string<wchar_t, N>;
 

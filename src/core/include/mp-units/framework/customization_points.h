@@ -106,12 +106,23 @@ concept has_element_type_member = requires { typename T::element_type; };
 MP_UNITS_EXPORT template<typename T>
 struct representation_underlying_type {};
 
+/**
+ * @brief Specialization stripping a top-level `const` before forwarding to `representation_underlying_type<T>`.
+ *
+ * @tparam T the (unqualified) representation type
+ */
 template<typename T>
 struct representation_underlying_type<const T> : representation_underlying_type<T> {};
 
+/**
+ * @brief Specialization for scoped enumeration types.
+ *
+ * @tparam T a scoped enumeration type
+ */
 template<typename T>
   requires is_scoped_enum_v<T>
 struct representation_underlying_type<T> {
+  /// @brief The underlying integer type of the scoped enumeration `T`.
   using type = std::underlying_type_t<T>;
 };
 
@@ -130,6 +141,11 @@ template<detail::has_value_type_member T>
            std::same_as<std::remove_cv_t<typename T::value_type>, std::remove_cv_t<typename T::element_type>>
 struct representation_underlying_type<T> : detail::cond_underlying_type<typename T::value_type> {};
 
+/**
+ * @brief Convenience alias for `representation_underlying_type<T>::type`.
+ *
+ * @tparam T the representation type
+ */
 MP_UNITS_EXPORT template<typename T>
   requires requires { typename representation_underlying_type<T>::type; }
 using representation_underlying_type_t = typename representation_underlying_type<T>::type;
@@ -153,6 +169,7 @@ using representation_underlying_type_t = typename representation_underlying_type
  */
 MP_UNITS_EXPORT template<typename T>
 struct representation_canonical_type {
+  /// @brief The canonical (decayed) representation type stored by a `quantity`.
   using type = std::remove_cvref_t<T>;
 };
 
@@ -160,9 +177,19 @@ struct representation_canonical_type {
 // above) so that library specializations only need to handle the unqualified type. This matters
 // because expression-template libraries return their proxies by `const` value (e.g.
 // `decltype(Eigen::Vector3d{} * 2.0)` is a `const Eigen::CwiseBinaryOp<...>`).
+/**
+ * @brief Specialization stripping a top-level `const` before forwarding to `representation_canonical_type<T>`.
+ *
+ * @tparam T the (unqualified) representation value type
+ */
 template<typename T>
 struct representation_canonical_type<const T> : representation_canonical_type<T> {};
 
+/**
+ * @brief Convenience alias for `representation_canonical_type<T>::type`.
+ *
+ * @tparam T the representation value type
+ */
 MP_UNITS_EXPORT template<typename T>
 using representation_canonical_type_t = typename representation_canonical_type<T>::type;
 
@@ -210,8 +237,10 @@ struct real_t {
 
 }  // namespace detail::real_impl
 
+/// @brief Holds the `real`, `imag`, and `modulus` customization point objects.
 inline namespace cpo {
 
+/// @brief Customization point object returning the real part of a complex-like value.
 MP_UNITS_EXPORT inline constexpr ::mp_units::detail::real_impl::real_t real;
 
 }
@@ -236,6 +265,7 @@ struct imag_t {
 
 inline namespace cpo {
 
+/// @brief Customization point object returning the imaginary part of a complex-like value.
 MP_UNITS_EXPORT inline constexpr ::mp_units::detail::imag_impl::imag_t imag;
 
 }
@@ -267,6 +297,7 @@ struct modulus_t {
 
 inline namespace cpo {
 
+/// @brief Customization point object returning the modulus (absolute value) of a complex-like value.
 MP_UNITS_EXPORT inline constexpr ::mp_units::detail::modulus_impl::modulus_t modulus;
 
 }
@@ -301,9 +332,19 @@ concept has_ambiguous_order = has_vector_indexing<T> && has_matrix_indexing<T>;
 // `RowsAtCompileTime` / `ColsAtCompileTime`). A type that exposes *both* shapes is ambiguous - only
 // its extents can decide - so it matches neither and stays `undefined` unless specialized: guessing
 // would disagree with an adapter, an ODR hazard across translation units.
+/**
+ * @brief The intrinsic tensor order of a representation type: 0 for scalar, 1 for vector, 2 for tensor.
+ *
+ * @tparam T the representation type
+ */
 MP_UNITS_EXPORT template<typename T>
 constexpr utility::unspecified_t tensor_order;
 
+/**
+ * @brief Structural detection of `tensor_order` for a type exposing exactly one indexing shape.
+ *
+ * @tparam T the representation type
+ */
 template<typename T>
   requires(!detail::has_ambiguous_order<T>)
 constexpr std::size_t tensor_order<T> = detail::has_matrix_indexing<T>   ? std::size_t{2}
@@ -409,9 +450,19 @@ concept field_consistent = field_reachable<T> && (field_is_consistent<T>());
 // `imag()` stays real. A container with a complex element but no such API is left *unspecified* here
 // (not a representation until the author exposes the API or specializes this trait), rather than
 // silently misclassified.
+/**
+ * @brief The numeric field of a representation type: real or complex.
+ *
+ * @tparam T the representation type
+ */
 MP_UNITS_EXPORT template<typename T>
 constexpr utility::unspecified_t numeric_field;
 
+/**
+ * @brief Detects `numeric_field` for a type whose tensor order is known and whose field is consistent.
+ *
+ * @tparam T the representation type
+ */
 template<typename T>
   requires detail::field_consistent<T>
 constexpr quantity_field numeric_field<T> = detail::detect_numeric_field<T>();
@@ -433,9 +484,15 @@ constexpr bool is_quantity_abstraction = false;
 // character. The default rejects a type that is, or whose elements are, a quantity abstraction (so a
 // bare quantity and a container of quantities are both excluded), and `bool` is opted out as well. A
 // custom type bars itself from ever being a representation with a one-line specialization.
+/**
+ * @brief A specializable opt-out: when `true`, `T` is not accepted as a quantity representation.
+ *
+ * @tparam T the representation type being checked
+ */
 MP_UNITS_EXPORT template<typename T>
 constexpr bool disable_representation = detail::is_quantity_abstraction<detail::value_type_t<T>>;
 
+/// @brief Opts `bool` out of being a valid quantity representation.
 template<>
 MP_UNITS_INLINE constexpr bool disable_representation<bool> = true;
 
@@ -445,6 +502,11 @@ MP_UNITS_INLINE constexpr bool disable_representation<bool> = true;
 // otherwise evaluate on every unit, magnitude, dimension, or quantity specification for each
 // candidate. An exotic stateless representation can still opt back in with an explicit
 // specialization, which takes precedence over this constrained one.
+/**
+ * @brief Opts stateless symbolic-constant tag types out of being a valid quantity representation.
+ *
+ * @tparam T a symbolic-constant tag type
+ */
 template<detail::SymbolicConstant T>
 MP_UNITS_INLINE constexpr bool disable_representation<T> = true;
 
@@ -479,18 +541,38 @@ template<typename From, typename To>
 [[deprecated("2.6.0: Use `mp_units::implicitly_scalable` instead")]]
 constexpr bool is_value_preserving = treat_as_floating_point<To> || !treat_as_floating_point<From>;
 
+/**
+ * @brief Deprecated, no longer necessary; kept only for backward compatibility.
+ *
+ * @tparam Rep a representation type
+ */
 template<typename Rep>
 [[deprecated("2.5.0: `is_scalar` is no longer necessary and can simply be removed")]]
 constexpr bool is_scalar = false;
 
+/**
+ * @brief Deprecated, no longer necessary; kept only for backward compatibility.
+ *
+ * @tparam Rep a representation type
+ */
 template<typename Rep>
 [[deprecated("2.5.0: `is_complex` is no longer necessary and can simply be removed")]]
 constexpr bool is_complex = false;
 
+/**
+ * @brief Deprecated, no longer necessary; kept only for backward compatibility.
+ *
+ * @tparam Rep a representation type
+ */
 template<typename Rep>
 [[deprecated("2.5.0: `is_vector` is no longer necessary and can simply be removed")]]
 constexpr bool is_vector = false;
 
+/**
+ * @brief Deprecated, no longer necessary; kept only for backward compatibility.
+ *
+ * @tparam Rep a representation type
+ */
 template<typename Rep>
 [[deprecated("2.5.0: `is_tensor` is no longer necessary and can simply be removed")]]
 constexpr bool is_tensor = false;
@@ -532,6 +614,11 @@ struct representation_values {
   }
 #endif
 
+  /**
+   * @brief Returns the multiplicative identity (one) for the representation type.
+   *
+   * @return `Rep(1)`
+   */
   static constexpr Rep one() noexcept
     requires std::constructible_from<Rep, int>
   {
@@ -539,6 +626,13 @@ struct representation_values {
   }
 };
 
+/**
+ * @brief Deprecated alias for `representation_values`.
+ *
+ * @deprecated Use `representation_values` instead.
+ *
+ * @tparam Rep a representation type for which a type trait is defined
+ */
 template<typename Rep>
 using quantity_values [[deprecated("2.5.0: Use `representation_values` instead")]] = representation_values<Rep>;
 

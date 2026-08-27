@@ -33,17 +33,19 @@ import std;
 #endif
 #endif
 
+/// @brief Public authoring vocabulary shared by the library's own customization points and by
+/// higher-level tools.
 namespace mp_units::utility {
 
-/// @brief Sentinel default for a specializable variable-template customization point with no usable
+/// @brief Sentinel type for a specializable variable-template customization point with no usable
 /// default.
 ///
 /// A variable template cannot be `= delete`d the way a function can, so a customization point that
-/// must be specialized before use defaults to `unspecified`, and a specialization replaces it with a
-/// real value. `specified` reports whether that has happened. This is public authoring vocabulary
-/// shared by the library's own customization points and by higher-level tools, hence it lives in the
-/// `mp_units::utility` namespace.
+/// must be specialized before use defaults to an object of this type, and a specialization replaces
+/// it with a real value. #specified reports whether that has happened.
 MP_UNITS_EXPORT struct unspecified_t {};
+
+/// @brief The default value of a customization point that has not yet been specialized.
 MP_UNITS_EXPORT inline constexpr unspecified_t unspecified{};
 
 /// @brief Satisfied when a customization point has been given a value (i.e. is not `unspecified`).

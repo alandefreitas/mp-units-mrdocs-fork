@@ -29,9 +29,17 @@
 
 namespace mp_units {
 
+/**
+ * @brief A specification of a quantity used to define its kind, dimension, and character
+ *
+ * The primary class template for all quantity specifications in the library. Users define new quantities
+ * by deriving a strong type from one of its specializations rather than instantiating it directly.
+ */
 #if MP_UNITS_API_NO_CRTP
+/// @brief A specification of a quantity used to define its kind, dimension, and character
 MP_UNITS_EXPORT template<auto...>
 #else
+/// @brief A specification of a quantity used to define its kind, dimension, and character
 MP_UNITS_EXPORT template<typename, auto...>
 #endif
 struct quantity_spec;
@@ -57,10 +65,23 @@ constexpr bool is_specialization_of_quantity_spec<quantity_spec<Derived, Params.
 
 }  // namespace detail
 
+/**
+ * @brief A concept matching all quantity specifications in the library
+ *
+ * Satisfied by strong types derived from a `quantity_spec` specialization, excluding `quantity_spec`
+ * specializations themselves.
+ */
 MP_UNITS_EXPORT template<typename T>
 concept QuantitySpec = std::derived_from<T, detail::quantity_spec_interface_base> && detail::SymbolicConstant<T> &&
                        !detail::is_specialization_of_quantity_spec<T>;
 
+/**
+ * @brief The type of a quantity kind for the quantity specification `Q`
+ *
+ * A quantity kind encompasses the entire hierarchy tree that `Q` belongs to, rather than just `Q` itself.
+ *
+ * @tparam Q the root quantity specification of the kind
+ */
 template<typename Q>
 struct kind_of_;
 
@@ -71,9 +92,27 @@ concept QuantityKindSpec = QuantitySpec<T> && is_specialization_of<T, kind_of_>;
 
 }  // namespace detail
 
+/**
+ * @brief Checks whether a quantity of quantity spec `From` can be implicitly converted to quantity spec `To`
+ *
+ * @tparam From source quantity specification type
+ * @tparam To target quantity specification type
+ * @param from source quantity specification value
+ * @param to target quantity specification value
+ * @return `true` if `from` is implicitly convertible to `to`
+ */
 MP_UNITS_EXPORT template<QuantitySpec From, QuantitySpec To>
 [[nodiscard]] consteval bool implicitly_convertible(From from, To to);
 
+/**
+ * @brief Checks whether a quantity of quantity spec `From` can be explicitly converted to quantity spec `To`
+ *
+ * @tparam From source quantity specification type
+ * @tparam To target quantity specification type
+ * @param from source quantity specification value
+ * @param to target quantity specification value
+ * @return `true` if `from` is explicitly convertible to `to`
+ */
 MP_UNITS_EXPORT template<QuantitySpec From, QuantitySpec To>
 [[nodiscard]] consteval bool explicitly_convertible(From from, To to);
 

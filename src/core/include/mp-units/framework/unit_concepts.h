@@ -72,6 +72,16 @@ concept UnitOf =
    (unsatisfied<"Unit '{}' is associated with quantity of kind '{}' which is not convertible to the '{}' quantity">(
      U{}, type_name(get_quantity_spec(U{})._quantity_spec_), type_name(QS))));
 
+/**
+ * @brief Computes the canonical form of a unit
+ *
+ * The canonical form reduces a unit to its reference unit expressed only in terms of base units
+ * together with the unit magnitude needed to reach it, so that units can be compared for
+ * compatibility and converted between each other.
+ *
+ * @param u unit to compute the canonical form of
+ * @return the canonical form of @p u
+ */
 MP_UNITS_EXPORT [[nodiscard]] consteval auto get_canonical_unit(Unit auto u);
 
 namespace detail {

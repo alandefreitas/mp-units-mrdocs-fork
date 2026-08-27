@@ -47,6 +47,15 @@ import std;
 
 namespace mp_units {
 
+/**
+ * @brief A constant defined in terms of a unit
+ *
+ * Similarly to `named_unit`, associates a symbol with a unit, but represents a specific measured
+ * or exact value (e.g. `si::si2019::speed_of_light_in_vacuum`) rather than a unit of measurement.
+ *
+ * @tparam Symbol a short text representation of the constant
+ * @tparam U a unit that we use to define a constant
+ */
 MP_UNITS_EXPORT template<symbol_text Symbol, Unit auto U, auto...>
 struct named_constant;
 
@@ -373,19 +382,21 @@ template<symbol_text Symbol, detail::QuantityKindSpec auto QS>
   requires(!Symbol.empty()) &&
           (detail::BaseDimension<MP_UNITS_NONCONST_TYPE(get_dimension(QS))> || detail::remove_kind(QS) == dimensionless)
 struct named_unit<Symbol, QS> : detail::unit_interface {
-  using _base_type_ = named_unit;           // exposition only
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_unit;
   static constexpr auto _symbol_ = Symbol;  ///< Unique base unit identifier
-  static constexpr auto _quantity_spec_ = QS;
+  static constexpr auto _quantity_spec_ = QS;  ///< The base quantity measured by this unit
 };
 
 template<symbol_text Symbol, detail::QuantityKindSpec auto QS, PointOrigin auto PO>
   requires(!Symbol.empty()) &&
           (detail::BaseDimension<MP_UNITS_NONCONST_TYPE(get_dimension(QS))> || detail::remove_kind(QS) == dimensionless)
 struct named_unit<Symbol, QS, PO> : detail::unit_interface {
-  using _base_type_ = named_unit;           // exposition only
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_unit;
   static constexpr auto _symbol_ = Symbol;  ///< Unique base unit identifier
-  static constexpr auto _quantity_spec_ = QS;
-  static constexpr auto _point_origin_ = PO;
+  static constexpr auto _quantity_spec_ = QS;  ///< The base quantity measured by this unit
+  static constexpr auto _point_origin_ = PO;   ///< The point origin associated with this unit
 };
 
 /**
@@ -429,14 +440,25 @@ struct named_unit<Symbol, U, QS> : decltype(U)::_base_type_ {
   static constexpr auto _quantity_spec_ = QS;
 };
 
+/**
+ * @brief Specialization for a unit with special name, valid only for a specific quantity and point origin
+ *
+ * The same as the above but additionally associates the unit with a point origin.
+ *
+ * @tparam Symbol a short text representation of the unit
+ * @tparam Unit a unit for which we provide a special name
+ * @tparam QuantitySpec a specification of a quantity to be measured with this unit
+ * @tparam PointOrigin a point origin associated with this unit
+ */
 template<symbol_text Symbol, Unit auto U, detail::QuantityKindSpec auto QS, PointOrigin auto PO>
   requires(!Symbol.empty()) && (get_dimension(QS) == get_dimension(detail::get_associated_quantity(U))) &&
           detail::is_positive_canonical_unit_mag<U>
 struct named_unit<Symbol, U, QS, PO> : decltype(U)::_base_type_ {
-  using _base_type_ = named_unit;           // exposition only
-  static constexpr auto _symbol_ = Symbol;  ///< Unique unit identifier
-  static constexpr auto _quantity_spec_ = QS;
-  static constexpr auto _point_origin_ = PO;
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_unit;
+  static constexpr auto _symbol_ = Symbol;      ///< Unique unit identifier
+  static constexpr auto _quantity_spec_ = QS;   ///< The quantity this unit is limited to
+  static constexpr auto _point_origin_ = PO;    ///< The point origin associated with this unit
 };
 
 /**
@@ -466,7 +488,7 @@ struct named_unit<Symbol, U, QS, PO> : decltype(U)::_base_type_ {
  */
 MP_UNITS_EXPORT template<UnitMagnitude M>
 struct relative_standard_uncertainty {
-  M magnitude;
+  M magnitude;  ///< The wrapped relative standard uncertainty magnitude
 };
 
 #if MP_UNITS_COMP_CLANG && MP_UNITS_COMP_CLANG < 17
@@ -504,7 +526,7 @@ relative_standard_uncertainty(M) -> relative_standard_uncertainty<M>;
  */
 MP_UNITS_EXPORT template<Unit U>
 struct standard_uncertainty {
-  U unit;
+  U unit;  ///< The wrapped standard uncertainty unit expression
 };
 
 #if MP_UNITS_COMP_CLANG && MP_UNITS_COMP_CLANG < 17
@@ -528,7 +550,8 @@ standard_uncertainty(U) -> standard_uncertainty<U>;
 template<symbol_text Symbol, Unit auto U>
   requires(!Symbol.empty())
 struct named_constant<Symbol, U> : decltype(U)::_base_type_ {
-  using _base_type_ = named_constant;       // exposition only
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_constant;
   static constexpr auto _symbol_ = Symbol;  ///< Unique constant identifier
 };
 
@@ -549,9 +572,10 @@ struct named_constant<Symbol, U> : decltype(U)::_base_type_ {
 template<symbol_text Symbol, Unit auto U, typename M, relative_standard_uncertainty<M> RSU>
   requires(!Symbol.empty()) && detail::magnitude_is_positive<M{}>
 struct named_constant<Symbol, U, RSU> : decltype(U)::_base_type_ {
-  using _base_type_ = named_constant;       // exposition only
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_constant;
   static constexpr auto _symbol_ = Symbol;  ///< Unique constant identifier
-  static constexpr auto _relative_standard_uncertainty_ = M{};
+  static constexpr auto _relative_standard_uncertainty_ = M{};  ///< The wrapped relative standard uncertainty magnitude
 };
 
 /**
@@ -568,9 +592,10 @@ struct named_constant<Symbol, U, RSU> : decltype(U)::_base_type_ {
 template<symbol_text Symbol, Unit auto U, typename SUU, standard_uncertainty<SUU> SU>
   requires(!Symbol.empty()) && detail::is_positive_canonical_unit_mag<SUU{}> && detail::ConvertibleUnits<SUU{}, U>
 struct named_constant<Symbol, U, SU> : decltype(U)::_base_type_ {
-  using _base_type_ = named_constant;       // exposition only
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = named_constant;
   static constexpr auto _symbol_ = Symbol;  ///< Unique constant identifier
-  static constexpr auto _standard_uncertainty_ = SUU{};
+  static constexpr auto _standard_uncertainty_ = SUU{};  ///< The wrapped standard uncertainty unit expression
 };
 
 /**
@@ -583,6 +608,9 @@ struct named_constant<Symbol, U, SU> : decltype(U)::_base_type_ {
  * There is no valid result for constants that are exact by definition. Asking for one would
  * conflate "exact by definition" with "measured infinitely precisely", so it is a compile-time
  * error rather than a zero magnitude.
+ *
+ * @param u the measured constant
+ * @return the relative standard uncertainty of @p u
  */
 MP_UNITS_EXPORT template<MeasuredConstant U>
 [[nodiscard]] consteval UnitMagnitude auto get_relative_standard_uncertainty(U u)
@@ -604,6 +632,9 @@ MP_UNITS_EXPORT template<MeasuredConstant U>
  *
  * As for `get_relative_standard_uncertainty`, there is no valid result for constants that are
  * exact by definition.
+ *
+ * @param u the measured constant
+ * @return the standard uncertainty of @p u
  */
 MP_UNITS_EXPORT template<MeasuredConstant U>
 [[nodiscard]] consteval Unit auto get_standard_uncertainty(U u)
@@ -645,8 +676,9 @@ MP_UNITS_EXPORT template<symbol_text Symbol, UnitMagnitude auto M, PrefixableUni
 // `scaled_unit_impl<M, U>`. Naming that base directly avoids instantiating the `operator*` machinery, and also the
 // `scaled_unit` specialization itself, for every prefix and unit combination (a quarter of `unit_symbols.h`).
 struct prefixed_unit : detail::scaled_unit_impl<M, MP_UNITS_REMOVE_CONST(decltype(U))> {
-  using _base_type_ = prefixed_unit;  // exposition only
-  static constexpr auto _symbol_ = Symbol + U._symbol_;
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = prefixed_unit;
+  static constexpr auto _symbol_ = Symbol + U._symbol_;  ///< The prefixed unit's symbol, formed by prepending @p Symbol to @p U's symbol
 };
 
 namespace detail {
@@ -693,8 +725,9 @@ constexpr auto common_unit_scaled_result = get_common_scaled_unit(U1{}, U2{}, Re
  */
 template<Unit U1, Unit U2, Unit... Rest>
 struct common_unit final : decltype(detail::common_unit_scaled_result<U1, U2, Rest...>)::_base_type_ {
-  using _base_type_ = common_unit;  // exposition only
-  static constexpr auto _common_unit_ = detail::common_unit_scaled_result<U1, U2, Rest...>;
+  /// Exposition-only alias naming this specialization's base type.
+  using _base_type_ = common_unit;
+  static constexpr auto _common_unit_ = detail::common_unit_scaled_result<U1, U2, Rest...>;  ///< The scaled unit shared by @p U1, @p U2, and @p Rest
 };
 
 namespace detail {
@@ -760,7 +793,7 @@ struct derived_unit final : detail::derived_unit_impl<Expr...> {};
  * Unit of a dimensionless quantity.
  */
 // clang-format off
-MP_UNITS_EXPORT inline constexpr struct one final : detail::derived_unit_impl<> {} one;
+MP_UNITS_EXPORT inline constexpr struct one final : detail::derived_unit_impl<> {} one;  ///< The unique instance of the unit one.
 // clang-format on
 
 }  // namespace mp_units

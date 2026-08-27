@@ -336,6 +336,10 @@ fma(const quantity<R, Rep1>& a, const quantity<S, Rep2>& x, const quantity_point
 
 /**
  * @brief Computes the floating-point remainder of the division operation x / y.
+ *
+ * @param x the dividend quantity
+ * @param y the divisor quantity
+ * @return the floating-point remainder of x / y, in the common reference of @p x and @p y
  */
 template<auto R1, typename Rep1, auto R2, typename Rep2>
   requires requires(Rep1 v1, Rep2 v2) {
@@ -359,6 +363,10 @@ template<auto R1, typename Rep1, auto R2, typename Rep2>
 
 /**
  * @brief Computes the IEEE remainder of the floating point division operation x / y.
+ *
+ * @param x the dividend quantity
+ * @param y the divisor quantity
+ * @return the IEEE remainder of x / y, in the common reference of @p x and @p y
  */
 template<auto R1, typename Rep1, auto R2, typename Rep2>
   requires requires(Rep1 v1, Rep2 v2) {
@@ -384,9 +392,10 @@ template<auto R1, typename Rep1, auto R2, typename Rep2>
 /**
  * @brief Returns the epsilon of the quantity
  *
- * The returned value is defined by a <tt>std::numeric_limits<typename Q::rep>::epsilon()</tt>.
+ * The returned value is defined by a <code>std::numeric_limits<typename Q::rep>::epsilon()</code>.
  *
  * @tparam Q Quantity type being the base of the operation
+ * @param r the reference (unit and quantity spec) to compute the epsilon for
  * @return Quantity The epsilon value for quantity's representation type
  */
 template<typename Rep, Reference R>
@@ -401,7 +410,7 @@ template<typename Rep, Reference R>
 /**
  * @brief Computes the largest quantity with integer representation and unit type To with its number not greater than q
  *
- * @tparam q Quantity being the base of the operation
+ * @param q Quantity being the base of the operation
  * @return Quantity The rounded quantity with unit type To
  */
 template<Unit auto To, auto R, typename Rep>
@@ -461,7 +470,7 @@ template<Unit auto To, auto R, auto PO, typename Rep>
 /**
  * @brief Computes the smallest quantity with integer representation and unit type To with its number not less than q
  *
- * @tparam q Quantity being the base of the operation
+ * @param q Quantity being the base of the operation
  * @return Quantity The rounded quantity with unit type To
  */
 template<Unit auto To, auto R, typename Rep>
@@ -524,7 +533,7 @@ template<Unit auto To, auto R, auto PO, typename Rep>
  * Returns the value `res` representable in `To` unit that is the closest to `q`. If there are two
  * such values, returns the even value (that is, the value `res` such that `res % 2 == 0`).
  *
- * @tparam q Quantity being the base of the operation
+ * @param q Quantity being the base of the operation
  * @return Quantity The quantity rounded to the nearest unit `To`, rounding to even in halfway
  *                  cases.
  */
@@ -581,6 +590,9 @@ template<Unit auto To, auto R, auto PO, typename Rep>
 
 /**
  * @brief Computes the inverse of a quantity in a provided unit
+ *
+ * @param q the quantity to invert
+ * @return the inverse of @p q, expressed in unit `To`
  */
 template<Unit auto To, auto R, typename Rep>
 [[nodiscard]] constexpr Quantity auto inverse(const quantity<R, Rep>& q)
@@ -597,6 +609,11 @@ template<Unit auto To, auto R, typename Rep>
 /**
  * @brief Computes the square root of the sum of the squares of x and y,
  *        without undue overflow or underflow at intermediate stages of the computation
+ *
+ * @param x first quantity
+ * @param y second quantity
+ * @return the square root of the sum of the squares of @p x and @p y, in the common reference of
+ *         @p x and @p y
  */
 template<auto R1, typename Rep1, auto R2, typename Rep2>
   requires requires(Rep1 v1, Rep2 v2) {
@@ -621,6 +638,12 @@ template<auto R1, typename Rep1, auto R2, typename Rep2>
 /**
  * @brief Computes the square root of the sum of the squares of x, y, and z,
  *        without undue overflow or underflow at intermediate stages of the computation
+ *
+ * @param x first quantity
+ * @param y second quantity
+ * @param z third quantity
+ * @return the square root of the sum of the squares of @p x, @p y, and @p z, in the common
+ *         reference of @p x, @p y, and @p z
  */
 template<auto R1, typename Rep1, auto R2, typename Rep2, auto R3, typename Rep3>
   requires requires(Rep1 v1, Rep2 v2, Rep3 v3) {
@@ -648,6 +671,11 @@ template<auto R1, typename Rep1, auto R2, typename Rep2, auto R3, typename Rep3>
  * Computes the linear interpolation between `a` and `b`, if the parameter `t` is inside `[​0​, 1)`
  * (the linear extrapolation otherwise), i.e. the result of `a + t(b − a)` with accounting for
  * floating-point calculation imprecision.
+ *
+ * @param a the point corresponding to `t == 0`
+ * @param b the point corresponding to `t == 1`
+ * @param t the interpolation (or extrapolation) factor
+ * @return the point resulting from interpolating (or extrapolating) between @p a and @p b by @p t
  */
 template<auto R1, auto Origin, typename Rep1, auto R2, typename Rep2, typename Factor>
   requires requires(Rep1 a, Rep2 b, Factor t) {
@@ -673,6 +701,10 @@ template<auto R1, auto Origin, typename Rep1, auto R2, typename Rep2, typename F
 
 /**
  * @brief Computes the midpoint of two points
+ *
+ * @param a first point
+ * @param b second point
+ * @return the point halfway between @p a and @p b
  */
 template<auto R1, auto Origin, typename Rep1, auto R2, typename Rep2>
   requires requires(Rep1 a, Rep2 b) {

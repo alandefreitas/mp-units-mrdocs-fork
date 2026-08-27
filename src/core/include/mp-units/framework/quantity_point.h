@@ -200,14 +200,18 @@ consteval auto bounds_arg()
 MP_UNITS_EXPORT template<QuantitySpec auto QS, auto... Args>
 struct absolute_point_origin : detail::point_origin_interface {
   static_assert(detail::bounds_arg_count<Args...>() <= 1, "at most one bounds policy may be provided");
+  /// @brief The quantity specification of the quantities measured from this origin
   static constexpr QuantitySpec auto _quantity_spec_ = QS;
+  /// @brief The bounds policy applied to points measured from this origin, if any was provided in `Args`
   static constexpr auto _bounds_ = detail::bounds_arg<Args...>();
 };
 
 MP_UNITS_EXPORT template<QuantityPoint auto QP, auto... Args>
 struct relative_point_origin : detail::point_origin_interface {
   static_assert(detail::bounds_arg_count<Args...>() <= 1, "at most one bounds policy may be provided");
+  /// @brief The quantity point this origin is defined relative to
   static constexpr QuantityPoint auto _quantity_point_ = QP;
+  /// @brief The quantity specification of this origin, being the strongest of `QP`'s specs
   static constexpr QuantitySpec auto _quantity_spec_ = []() {
     // select the strongest of specs
     if constexpr (detail::QuantityKindSpec<MP_UNITS_NONCONST_TYPE(QP.quantity_spec)>)
@@ -215,7 +219,9 @@ struct relative_point_origin : detail::point_origin_interface {
     else
       return QP.quantity_spec;
   }();
+  /// @brief The absolute point origin that `QP`, and thus this origin, is ultimately measured from
   static constexpr PointOrigin auto _absolute_point_origin_ = QP.absolute_point_origin;
+  /// @brief The bounds policy applied to points measured from this origin, if any was provided in `Args`
   static constexpr auto _bounds_ = detail::bounds_arg<Args...>();
 };
 
@@ -244,15 +250,30 @@ using natural_origin_base_t = natural_origin_base<QS>::type;
 
 }  // namespace detail
 
+/**
+ * @brief Implementation type of `natural_point_origin`
+ *
+ * Derives from `absolute_point_origin<QS>`, additionally applying a non-negative bounds check when `QS`
+ * is tagged as non-negative and has a real-scalar character.
+ *
+ * @tparam QS quantity specification of the quantities measured from this origin
+ */
 template<QuantitySpec auto QS>
 struct natural_point_origin_ final : detail::natural_origin_base_t<QS> {};
 
+/**
+ * @brief The point origin located at the zero point of a quantity specification
+ *
+ * @tparam QS quantity specification of the quantities measured from this origin
+ */
 MP_UNITS_EXPORT template<QuantitySpec auto QS>
 constexpr natural_point_origin_<QS> natural_point_origin;
 
+/// @brief Deprecated alias for `natural_point_origin_`
 template<QuantitySpec auto QS>
 using zeroth_point_origin_ [[deprecated("2.6.0: Use `natural_point_origin_` instead")]] = natural_point_origin_<QS>;
 
+/// @brief Deprecated alias for `natural_point_origin`
 MP_UNITS_EXPORT template<QuantitySpec auto QS>
 [[deprecated("2.6.0: Use `natural_point_origin` instead")]]
 constexpr natural_point_origin_<QS>
@@ -266,8 +287,18 @@ constexpr bool is_specialization_of_natural_point_origin<natural_point_origin_<Q
 }  // namespace detail
 
 
+/**
+ * @brief Returns the default point origin for a reference
+ *
+ * If the reference's unit defines its own point origin, that origin is returned. Otherwise, the natural
+ * point origin of the reference's quantity specification is used.
+ *
+ * @tparam R reference type for which the default point origin is requested
+ * @param r reference instance for which the default point origin is requested
+ * @return the default point origin associated with `R`
+ */
 MP_UNITS_EXPORT template<Reference R>
-[[nodiscard]] consteval PointOriginFor<get_quantity_spec(R{})> auto default_point_origin(R)
+[[nodiscard]] consteval PointOriginFor<get_quantity_spec(R{})> auto default_point_origin(R r)
 {
   if constexpr (requires { get_unit(R{})._point_origin_; })
     return get_unit(R{})._point_origin_;
@@ -557,19 +588,35 @@ template<Reference auto R, PointOriginFor<get_quantity_spec(R)> auto PO = defaul
 class quantity_point : public detail::quantity_point_iface {
 public:
   // member types and values
+  /// The reference of the quantity point, as provided via the `R` template parameter.
   static constexpr Reference auto reference = R;
+  /// The quantity specification extracted from `reference`.
   static constexpr QuantitySpec auto quantity_spec = get_quantity_spec(reference);
+  /// The dimension extracted from `quantity_spec`.
   static constexpr Dimension auto dimension = get_dimension(quantity_spec);
+  /// The quantity character (tensor order and numeric field) extracted from `quantity_spec`.
   static constexpr quantity_character character = get_character(quantity_spec);
+  /// The unit extracted from `reference`.
   static constexpr Unit auto unit = get_unit(reference);
+  /// The absolute point origin underlying `point_origin` - `point_origin` itself if it already is
+  /// one, otherwise the absolute origin reached by following its chain of relative point origins.
   static constexpr PointOrigin auto absolute_point_origin = detail::get_absolute_point_origin(PO);
+  /// The point origin of this quantity point, as provided via the `PO` template parameter.
   static constexpr PointOrigin auto point_origin = PO;
+  /// The type used to represent the numerical value of the quantity point.
   using rep = Rep;
+  /// The `quantity` type used to store the offset of this quantity point from `point_origin`.
   using quantity_type = quantity<reference, Rep>;
 
-  quantity_type quantity_from_origin_is_an_implementation_detail_;  // needs to be public for a structural type
+  quantity_type quantity_from_origin_is_an_implementation_detail_;  ///< needs to be public for a structural type
 
   // static member functions
+  /**
+   * @brief Returns the smallest representable quantity point, honoring the point origin's bounds policy.
+   *
+   * @return A quantity point at `point_origin`, holding the origin's declared lower bound if
+   * `point_origin` provides one, or `quantity_type::min()` otherwise.
+   */
   [[nodiscard]] static constexpr quantity_point min() noexcept
     requires requires { PO._bounds_.min; } || requires { quantity_type::min(); }
   {
@@ -585,6 +632,12 @@ public:
     }
   }
 
+  /**
+   * @brief Returns the largest representable quantity point, honoring the point origin's bounds policy.
+   *
+   * @return A quantity point at `point_origin`, holding the origin's declared upper bound if
+   * `point_origin` provides one, or `quantity_type::max()` otherwise.
+   */
   [[nodiscard]] static constexpr quantity_point max() noexcept
     requires requires { PO._bounds_.max; } || requires { quantity_type::max(); }
   {
@@ -594,6 +647,13 @@ public:
       return {quantity_type::max(), PO};
   }
 
+  /**
+   * @brief Returns a quantity point at `point_origin`, holding the representation type's zero value.
+   *
+   * Only available when `point_origin` is the default point origin for `R`.
+   *
+   * @return A quantity point equal to `quantity_type::zero()` measured from `point_origin`.
+   */
   [[nodiscard]] static constexpr quantity_point zero() noexcept
     requires(PO == default_point_origin(R)) && requires { quantity_type::zero(); }
   {
@@ -601,8 +661,16 @@ public:
   }
 
   // construction and assignment
+  /// Default constructor. Leaves the underlying quantity default-initialized.
   [[nodiscard]] quantity_point() = default;
 
+  /**
+   * @brief Constructs a quantity point from a quantity, measured from the default point origin.
+   *
+   * Only available when `point_origin` is the default point origin for `R`.
+   *
+   * @param q the quantity giving the offset from `point_origin`
+   */
   template<typename FwdQ, QuantityOf<quantity_spec> Q = std::remove_cvref_t<FwdQ>>
     requires std::constructible_from<quantity_type, FwdQ> && (point_origin == default_point_origin(R))
   [[nodiscard]] constexpr explicit quantity_point(FwdQ&& q) :
@@ -611,24 +679,43 @@ public:
   {
   }
 
+  /**
+   * @brief Constructs a quantity point from a quantity measured from this point's own origin.
+   *
+   * @param q the quantity giving the offset from `point_origin`
+   * @param po the point origin the quantity is measured from, equal to `point_origin`
+   */
   template<typename FwdQ, QuantityOf<quantity_spec> Q = std::remove_cvref_t<FwdQ>>
     requires std::constructible_from<quantity_type, FwdQ>
-  [[nodiscard]] constexpr quantity_point(FwdQ&& q, decltype(PO)) :
+  [[nodiscard]] constexpr quantity_point(FwdQ&& q, decltype(PO) po) :
       quantity_from_origin_is_an_implementation_detail_(
         detail::enforce_bounds<point_origin>(quantity_type{std::forward<FwdQ>(q)}))
   {
   }
 
+  /**
+   * @brief Constructs a quantity point from a quantity measured from another point origin that
+   * shares this one's absolute point origin.
+   *
+   * @param q the quantity giving the offset from `po`
+   * @param po the point origin the quantity is measured from
+   */
   template<typename FwdQ, PointOrigin PO2, Quantity Q = std::remove_cvref_t<FwdQ>>
     requires PointOriginFor<PO2, Q::quantity_spec> && std::constructible_from<quantity_type, FwdQ> &&
              detail::SameAbsolutePointOriginAs<PO2, PO>
-  [[nodiscard]] constexpr quantity_point(FwdQ&& q, PO2) :
+  [[nodiscard]] constexpr quantity_point(FwdQ&& q, PO2 po) :
       quantity_point(
         quantity_point<std::remove_reference_t<Q>::reference, PO2{}, typename std::remove_reference_t<Q>::rep>{
           std::forward<FwdQ>(q), PO2{}})
   {
   }
 
+  /**
+   * @brief Converting constructor from another quantity point that shares this one's absolute
+   * point origin.
+   *
+   * @param qp the source quantity point to convert from
+   */
   template<QuantityPointOf<absolute_point_origin> QP>
     requires std::constructible_from<quantity_type, typename QP::quantity_type>
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
@@ -643,6 +730,14 @@ public:
   {
   }
 
+  /**
+   * @brief Converting constructor from a quantity point anchored to a different absolute point origin.
+   *
+   * Re-expresses `qp` at `point_origin` via `point_for`, which requires a `frame_projection` between
+   * the two absolute point origins to be defined.
+   *
+   * @param qp the source quantity point to convert from
+   */
   template<QuantityPoint QP>
     requires(!QuantityPointOf<QP, absolute_point_origin>) && requires(const QP& src) {
       { src.point_for(point_origin) } -> QuantityPointOf<point_origin>;
@@ -656,6 +751,12 @@ public:
   {
   }
 
+  /**
+   * @brief Constructs a quantity point from an external quantity-point-like type via
+   * `quantity_point_like_traits`.
+   *
+   * @param qp the source value, adapted through `quantity_point_like_traits<QP>`
+   */
   template<QuantityPointLike QP>
     requires(quantity_point_like_traits<QP>::point_origin == point_origin) &&
             std::constructible_from<quantity_type, quantity<quantity_point_like_traits<QP>::reference,
@@ -671,6 +772,13 @@ public:
   {
   }
 
+  /**
+   * @brief Re-expresses this quantity point relative to another point origin that shares the same
+   * absolute point origin.
+   *
+   * @param new_origin the point origin to express this quantity point from
+   * @return This quantity point measured from `new_origin`.
+   */
   template<detail::SameAbsolutePointOriginAs<absolute_point_origin> NewPO>
   [[nodiscard]] constexpr QuantityPointOf<(NewPO{})> auto point_for(NewPO new_origin) const
   {
@@ -680,6 +788,14 @@ public:
       return ::mp_units::quantity_point{*this - new_origin, new_origin};
   }
 
+  /**
+   * @brief Re-expresses this quantity point relative to a point origin anchored to a different
+   * absolute point origin, via a user-defined `frame_projection`.
+   *
+   * @param new_origin the point origin to express this quantity point from
+   * @param args extra arguments forwarded to the `frame_projection` between the two absolute point origins
+   * @return This quantity point measured from `new_origin`.
+   */
   template<PointOrigin NewPO, typename... Args>
     requires detail::HasFrameProjection<absolute_point_origin, detail::get_absolute_point_origin(NewPO{})> &&
              requires(quantity_point<reference, absolute_point_origin, Rep> at_src, Args... args) {
@@ -699,74 +815,136 @@ public:
   }
 
   // data access
+  /**
+   * @brief Returns a mutable reference to the underlying quantity, measured from `point_origin`.
+   *
+   * @param po a point origin equal to `point_origin`
+   * @return A reference to the stored offset quantity.
+   */
   template<PointOrigin PO2>
     requires(PO2{} == point_origin)
-  [[nodiscard]] constexpr quantity_type& quantity_ref_from(PO2) & noexcept
+  [[nodiscard]] constexpr quantity_type& quantity_ref_from(PO2 po) & noexcept
   {
     return quantity_from_origin_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Returns a const reference to the underlying quantity, measured from `point_origin`.
+   *
+   * @param po a point origin equal to `point_origin`
+   * @return A const reference to the stored offset quantity.
+   */
   template<PointOrigin PO2>
     requires(PO2{} == point_origin)
-  [[nodiscard]] constexpr const quantity_type& quantity_ref_from(PO2) const& noexcept
+  [[nodiscard]] constexpr const quantity_type& quantity_ref_from(PO2 po) const& noexcept
   {
     return quantity_from_origin_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Deleted overload that prevents forming a reference into a temporary quantity point.
+   *
+   * @param po a point origin equal to `point_origin`
+   */
   template<PointOrigin PO2>
     requires(PO2{} == point_origin)
-  constexpr const quantity_type&& quantity_ref_from(PO2) const&& noexcept
+  constexpr const quantity_type&& quantity_ref_from(PO2 po) const&& noexcept
 #if __cpp_deleted_function
     = delete ("Can't form a reference to a temporary");
 #else
     = delete;
 #endif
 
+  /**
+   * @brief Returns the quantity separating this quantity point from a given point origin.
+   *
+   * @param po the point origin to measure the offset from
+   * @return The result of `*this - po`.
+   */
   template<PointOrigin PO2>
     requires requires(const quantity_point qp) { qp - PO2{}; }
-  [[nodiscard]] constexpr Quantity auto quantity_from(PO2) const
+  [[nodiscard]] constexpr Quantity auto quantity_from(PO2 po) const
   {
     return *this - PO2{};
   }
 
+  /**
+   * @brief Returns the quantity separating this quantity point from another quantity point.
+   *
+   * @param qp the quantity point to measure the offset from
+   * @return The result of `*this - qp`.
+   */
   template<QuantityPointOf<absolute_point_origin> QP>
   [[nodiscard]] constexpr Quantity auto quantity_from(const QP& qp) const
   {
     return *this - qp;
   }
 
+  /**
+   * @brief Returns the quantity separating this quantity point from the zero of its default point origin.
+   *
+   * Only available when `point_origin` is the default point origin for `R`.
+   *
+   * @return A reference to the stored offset quantity, measured from `point_origin`.
+   */
   [[nodiscard]] constexpr const quantity_type& quantity_from_zero() const noexcept
     requires(PO == default_point_origin(R))
   {
     return quantity_ref_from(PO);
   }
 
-  // Extracts the numerical value of the point on the scale of `U` (measured from the default
-  // point origin of that unit). This is the exact inverse of `point<U>(value)` and is provided
-  // only for points that use `default_point_origin(R)` - the same condition under which text
-  // output and `quantity_from_zero()` are available. Points with a custom origin have no unique
-  // numerical representation, so their value must be requested from an explicit origin via
-  // `quantity_from(origin).numerical_value_in(U)`.
+  /**
+   * @brief Returns the numerical value of this quantity point on the scale of another unit,
+   * implicitly convertible to `rep`.
+   *
+   * This is the exact inverse of `point<U>(value)` and is provided only for points that use
+   * `default_point_origin(R)` - the same condition under which text output and
+   * `quantity_from_zero()` are available. Points with a custom origin have no unique numerical
+   * representation, so their value must be requested from an explicit origin via
+   * `quantity_from(origin).numerical_value_in(U)`.
+   *
+   * @param u the target unit, measured from the default point origin of that unit
+   * @return The numerical value expressed in `u`.
+   */
   template<UnitOf<quantity_spec> U>
     requires(PO == default_point_origin(R)) && detail::ImplicitScaling<unit, U{}, rep>
-  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U) const noexcept
+  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U u) const noexcept
   {
     return in(U{}).quantity_from_zero().numerical_value_in(U{});
   }
 
+  /**
+   * @brief Returns the numerical value of this quantity point on the scale of another unit,
+   * applying an explicit rounding policy.
+   *
+   * Only available when `point_origin` is the default point origin for `R`.
+   *
+   * @param u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The numerical value expressed in `u`, measured from the default point origin.
+   */
   template<UnitOf<quantity_spec> U, RoundingPolicy Policy>
     requires(PO == default_point_origin(R)) && detail::ExplicitlyCastable<unit, U{}, rep> &&
             detail::ValidRoundingPolicyFor<Policy, rep, rep>
-  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U, Policy policy) const noexcept
+  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U u, Policy policy) const noexcept
   {
     return in(U{}, policy).quantity_from_zero().numerical_value_in(U{});
   }
 
+  /**
+   * @brief Deprecated. Returns the numerical value of this quantity point on the scale of another
+   * unit, truncating if inexact.
+   *
+   * @param u the target unit
+   * @return The numerical value expressed in `u`, measured from the default point origin.
+   * @deprecated Since 2.6.0; use `numerical_value_in(unit, policy)` with a rounding policy (e.g.
+   * `truncated`) instead.
+   */
   template<UnitOf<quantity_spec> U>
     requires(PO == default_point_origin(R)) && detail::ExplicitlyCastable<unit, U{}, rep>
   [[deprecated(
     "2.6.0: use `numerical_value_in(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto force_numerical_value_in(U) const noexcept
+    "instead")]] [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto force_numerical_value_in(U u) const noexcept
   {
     return numerical_value_in(U{}, truncated);
   }
@@ -785,13 +963,24 @@ private:
 
 public:
   // unit conversions
+  /**
+   * @brief Returns this quantity point re-expressed in another unit, implicitly convertible to `rep`.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity point expressed in `to_u`.
+   */
   template<UnitOf<quantity_spec> ToU>
     requires detail::ImplicitScaling<unit, ToU{}, rep>
-  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU) const
+  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU to_u) const
   {
     return in_impl(ToU{}, [](const auto& q) { return q.in(ToU{}); });
   }
 
+  /**
+   * @brief Returns this quantity point re-expressed with another representation type, in the same unit.
+   *
+   * @return The equivalent quantity point with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep>
     requires detail::RepConstructibleFrom<ToRep, rep>
   [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in() const
@@ -799,20 +988,41 @@ public:
     return ::mp_units::quantity_point{quantity_ref_from(point_origin).template in<ToRep>(), point_origin};
   }
 
+  /**
+   * @brief Returns this quantity point re-expressed in another unit and representation type, both
+   * implicitly convertible.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity point expressed in `to_u` with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU>
     requires detail::RepConstructibleFrom<ToRep, rep> && detail::ImplicitConversion<unit, rep, ToU{}, ToRep>
-  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU) const
+  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU to_u) const
   {
     return in_impl(ToU{}, [](const auto& q) { return q.template in<ToRep>(ToU{}); });
   }
 
+  /**
+   * @brief Returns this quantity point re-expressed in another unit, applying an explicit rounding policy.
+   *
+   * @param to_u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity point expressed in `to_u`.
+   */
   template<UnitOf<quantity_spec> ToU, RoundingPolicy Policy>
     requires detail::ExplicitlyCastable<unit, ToU{}, rep> && detail::ValidRoundingPolicyFor<Policy, rep, rep>
-  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU, Policy policy) const
+  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU to_u, Policy policy) const
   {
     return in_impl(ToU{}, [policy](const auto& q) { return q.in(ToU{}, policy); });
   }
 
+  /**
+   * @brief Returns this quantity point re-expressed with another representation type, applying an
+   * explicit rounding policy.
+   *
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity point with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, RoundingPolicy Policy>
     requires std::constructible_from<ToRep, rep> && detail::ValidRoundingPolicyFor<Policy, rep, ToRep>
   [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(Policy policy) const
@@ -820,23 +1030,45 @@ public:
     return ::mp_units::quantity_point{quantity_ref_from(point_origin).template in<ToRep>(policy), point_origin};
   }
 
+  /**
+   * @brief Returns this quantity point re-expressed in another unit and representation type, applying
+   * an explicit rounding policy.
+   *
+   * @param to_u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity point expressed in `to_u` with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU, RoundingPolicy Policy>
     requires std::constructible_from<ToRep, rep> && detail::ExplicitlyCastable<unit, ToU{}, ToRep> &&
              detail::ValidRoundingPolicyFor<Policy, rep, ToRep>
-  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU, Policy policy) const
+  [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto in(ToU to_u, Policy policy) const
   {
     return in_impl(ToU{}, [policy](const auto& q) { return q.template in<ToRep>(ToU{}, policy); });
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity point re-expressed in another unit, truncating if inexact.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity point expressed in `to_u`.
+   * @deprecated Since 2.6.0; use `in(unit, policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<UnitOf<quantity_spec> ToU>
     requires detail::ExplicitlyCastable<unit, ToU{}, rep>
   [[deprecated(
     "2.6.0: use `in(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto force_in(ToU) const
+    "instead")]] [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto force_in(ToU to_u) const
   {
     return in(ToU{}, truncated);
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity point re-expressed with another representation type,
+   * truncating if inexact.
+   *
+   * @return The equivalent quantity point with representation type `ToRep`.
+   * @deprecated Since 2.6.0; use `in<Rep>(policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<RepresentationOf<quantity_spec> ToRep>
     requires std::constructible_from<ToRep, rep>
   [[deprecated("2.6.0: use `in<Rep>(policy)` with a rounding policy (e.g. `truncated`) instead")]] [[nodiscard]]
@@ -845,16 +1077,31 @@ public:
     return in<ToRep>(truncated);
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity point re-expressed in another unit and representation
+   * type, truncating if inexact.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity point expressed in `to_u` with representation type `ToRep`.
+   * @deprecated Since 2.6.0; use `in<Rep>(unit, policy)` with a rounding policy (e.g. `truncated`)
+   * instead.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU>
     requires std::constructible_from<ToRep, rep> && detail::ExplicitlyCastable<unit, ToU{}, rep>
   [[deprecated(
     "2.6.0: use `in<Rep>(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto force_in(ToU) const
+    "instead")]] [[nodiscard]] constexpr QuantityPointOf<quantity_spec> auto force_in(ToU to_u) const
   {
     return in<ToRep>(ToU{}, truncated);
   }
 
   // conversion operators
+  /**
+   * @brief Converts this lvalue quantity point to an external quantity-point-like type via
+   * `quantity_point_like_traits`.
+   *
+   * @return The value produced by `quantity_point_like_traits<QP>::from_numerical_value`.
+   */
   template<typename QP_, QuantityPointLike QP = std::remove_cvref_t<QP_>>
     requires(point_origin == quantity_point_like_traits<QP>::point_origin) &&
             std::convertible_to<quantity_type, quantity<quantity_point_like_traits<QP>::reference,
@@ -873,6 +1120,12 @@ public:
       quantity_from_origin_is_an_implementation_detail_.numerical_value_is_an_implementation_detail_);
   }
 
+  /**
+   * @brief Converts this rvalue quantity point to an external quantity-point-like type via
+   * `quantity_point_like_traits`.
+   *
+   * @return The value produced by `quantity_point_like_traits<QP>::from_numerical_value`.
+   */
   template<typename QP_, QuantityPointLike QP = std::remove_cvref_t<QP_>>
     requires(point_origin == quantity_point_like_traits<QP>::point_origin) &&
             std::convertible_to<quantity_type, quantity<quantity_point_like_traits<QP>::reference,
@@ -892,6 +1145,11 @@ public:
   }
 
   // member unary operators
+  /**
+   * @brief Pre-increments the underlying quantity from the origin.
+   *
+   * @return `*this`, after the increment.
+   */
   constexpr quantity_point& operator++() &
     requires requires { ++quantity_from_origin_is_an_implementation_detail_; }
   {
@@ -901,7 +1159,14 @@ public:
     return *this;
   }
 
-  [[nodiscard]] constexpr quantity_point operator++(int)
+  /**
+   * @brief Post-increments the underlying quantity from the origin.
+   *
+   * @param unused_tag An unused tag parameter that distinguishes this overload as the
+   * post-increment operator.
+   * @return A quantity point holding the value of `*this` before the increment.
+   */
+  [[nodiscard]] constexpr quantity_point operator++([[maybe_unused]] int unused_tag)
     requires requires { quantity_from_origin_is_an_implementation_detail_++; }
   {
     auto old_quantity = quantity_from_origin_is_an_implementation_detail_;
@@ -911,6 +1176,11 @@ public:
     return {old_quantity, PO};
   }
 
+  /**
+   * @brief Pre-decrements the underlying quantity from the origin.
+   *
+   * @return `*this`, after the decrement.
+   */
   constexpr quantity_point& operator--() &
     requires requires { --quantity_from_origin_is_an_implementation_detail_; }
   {
@@ -920,7 +1190,14 @@ public:
     return *this;
   }
 
-  [[nodiscard]] constexpr quantity_point operator--(int)
+  /**
+   * @brief Post-decrements the underlying quantity from the origin.
+   *
+   * @param unused_tag An unused tag parameter that distinguishes this overload as the
+   * post-decrement operator.
+   * @return A quantity point holding the value of `*this` before the decrement.
+   */
+  [[nodiscard]] constexpr quantity_point operator--([[maybe_unused]] int unused_tag)
     requires requires { quantity_from_origin_is_an_implementation_detail_--; }
   {
     auto old_quantity = quantity_from_origin_is_an_implementation_detail_;
@@ -931,6 +1208,12 @@ public:
   }
 
   // compound assignment operators
+  /**
+   * @brief Adds a quantity to the underlying quantity from the origin and assigns the result to `*this`.
+   *
+   * @param q The quantity to add.
+   * @return `*this`, after the addition.
+   */
   template<auto R2, typename Rep2>
     requires(mp_units::implicitly_convertible(get_quantity_spec(R2), quantity_spec)) &&
             detail::ImplicitConversion<get_unit(R2), Rep2, unit, rep> &&
@@ -943,6 +1226,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Subtracts a quantity from the underlying quantity from the origin and assigns the result to `*this`.
+   *
+   * @param q The quantity to subtract.
+   * @return `*this`, after the subtraction.
+   */
   template<auto R2, typename Rep2>
     requires(mp_units::implicitly_convertible(get_quantity_spec(R2), quantity_spec)) &&
             detail::ImplicitConversion<get_unit(R2), Rep2, unit, rep> &&
@@ -962,12 +1251,28 @@ template<QuantityPoint QP>
 quantity_point(QP qp) -> quantity_point<QP::reference, QP::point_origin, typename QP::rep>;
 #endif
 
+/**
+ * @brief Deduces a `quantity_point` from a quantity alone, using the default point origin for its reference.
+ *
+ * @tparam Q the quantity type
+ */
 template<Quantity Q>
 quantity_point(Q q) -> quantity_point<Q::reference, default_point_origin(Q::reference), typename Q::rep>;
 
+/**
+ * @brief Deduces a `quantity_point` from a quantity and an explicit point origin.
+ *
+ * @tparam Q the quantity type
+ * @tparam PO the point origin type
+ */
 template<Quantity Q, PointOriginFor<Q::quantity_spec> PO>
 quantity_point(Q q, PO) -> quantity_point<Q::reference, PO{}, typename Q::rep>;
 
+/**
+ * @brief Deduces a `quantity_point` from an external quantity-point-like type via `quantity_point_like_traits`.
+ *
+ * @tparam QP the quantity-point-like type
+ */
 template<QuantityPointLike QP>
 quantity_point(QP)
   -> quantity_point<quantity_point_like_traits<QP>::reference, quantity_point_like_traits<QP>::point_origin,

@@ -35,13 +35,34 @@ import std;
 #endif  // MP_UNITS_IMPORT_STD
 #endif  // MP_UNITS_IN_MODULE_INTERFACE
 
+/**
+ * @brief The Measurement Library
+ */
 namespace mp_units {
 
-// A quantity's character splits into two orthogonal axes: its *tensor order* (scalar, vector,
-// tensor) and its *numeric field* (real, complex). The enumerators are declared in increasing
-// rank so that the underlying comparison orders them (scalar < vector < tensor, real < complex).
-MP_UNITS_EXPORT enum class quantity_tensor_order : std::int8_t { scalar, vector, tensor };
-MP_UNITS_EXPORT enum class quantity_field : std::int8_t { real, complex };
+/**
+ * @brief The tensor order axis of a quantity's character
+ *
+ * A quantity's character splits into two orthogonal axes: its *tensor order* (scalar, vector,
+ * tensor) and its *numeric field* (real, complex). The enumerators are declared in increasing
+ * rank so that the underlying comparison orders them (scalar < vector < tensor, real < complex).
+ */
+MP_UNITS_EXPORT enum class quantity_tensor_order : std::int8_t {
+  scalar,  ///< A quantity with magnitude but no direction.
+  vector,  ///< A quantity with both magnitude and direction.
+  tensor   ///< A quantity that additionally carries orientation (e.g. the Cauchy stress tensor).
+};
+
+/**
+ * @brief The numeric field axis of a quantity's character
+ *
+ * Distinguishes real quantities from complex ones (such as a voltage phasor or a complex
+ * permittivity), which affects the operations a quantity admits.
+ */
+MP_UNITS_EXPORT enum class quantity_field : std::int8_t {
+  real,    ///< A quantity represented by a real number.
+  complex  ///< A quantity represented by a complex number.
+};
 
 // The pre-2.6.0 flat character enumeration, kept as a user-facing compatibility spelling
 // (`quantity_character::real_scalar`, `::vector`, ...). The library itself uses the two-axis
@@ -49,11 +70,16 @@ MP_UNITS_EXPORT enum class quantity_field : std::int8_t { real, complex };
 // steer new code toward the `quantity_tensor_order` and `quantity_field` axes.
 #define MP_UNITS_QCL_DEPRECATED \
   [[deprecated("2.6.0: use the 'quantity_tensor_order' and 'quantity_field' axes instead")]]
+/**
+ * @brief The pre-2.6.0 flat quantity character enumeration
+ *
+ * @deprecated Use the `quantity_tensor_order` and `quantity_field` axes instead.
+ */
 MP_UNITS_EXPORT enum class MP_UNITS_QCL_DEPRECATED quantity_character_legacy : std::int8_t {
-  real_scalar MP_UNITS_QCL_DEPRECATED,
-  complex_scalar MP_UNITS_QCL_DEPRECATED,
-  vector MP_UNITS_QCL_DEPRECATED,
-  tensor MP_UNITS_QCL_DEPRECATED
+  real_scalar MP_UNITS_QCL_DEPRECATED,     ///< A real-valued scalar.
+  complex_scalar MP_UNITS_QCL_DEPRECATED,  ///< A complex-valued scalar.
+  vector MP_UNITS_QCL_DEPRECATED,          ///< A real-valued vector.
+  tensor MP_UNITS_QCL_DEPRECATED           ///< A real-valued tensor.
 };
 #undef MP_UNITS_QCL_DEPRECATED
 
@@ -82,18 +108,45 @@ MP_UNITS_EXPORT struct quantity_character {
   using enum quantity_character_legacy;
   MP_UNITS_DIAGNOSTIC_POP
 
-  quantity_tensor_order order = quantity_tensor_order::scalar;
-  quantity_field field = quantity_field::real;
+  quantity_tensor_order order = quantity_tensor_order::scalar;  ///< The tensor order axis (defaults to scalar).
+  quantity_field field = quantity_field::real;                  ///< The numeric field axis (defaults to real).
 
+  /**
+   * @brief Constructs a scalar, real quantity character
+   */
   consteval quantity_character() = default;
+
+  /**
+   * @brief Constructs a quantity character from both axes
+   *
+   * @param tensor_order The tensor order axis.
+   * @param numeric_field The numeric field axis.
+   */
   consteval quantity_character(quantity_tensor_order tensor_order, quantity_field numeric_field) :
       order(tensor_order), field(numeric_field)
   {
   }
+
+  /**
+   * @brief Constructs a real quantity character with the given tensor order
+   *
+   * @param tensor_order The tensor order axis.
+   */
   consteval quantity_character(quantity_tensor_order tensor_order) : order(tensor_order) {}
+
+  /**
+   * @brief Constructs a scalar quantity character with the given numeric field
+   *
+   * @param numeric_field The numeric field axis.
+   */
   consteval quantity_character(quantity_field numeric_field) : field(numeric_field) {}
   MP_UNITS_DIAGNOSTIC_PUSH
   MP_UNITS_DIAGNOSTIC_IGNORE_DEPRECATED
+  /**
+   * @brief Constructs a quantity character from the pre-2.6.0 flat spelling
+   *
+   * @param legacy The flat character value to translate onto the two-axis representation.
+   */
   consteval quantity_character(quantity_character_legacy legacy)
   {
     switch (legacy) {
@@ -120,7 +173,14 @@ MP_UNITS_EXPORT struct quantity_character {
   // Lexicographic on (order, field). Matches the pre-2.6.0 enum ordering
   // (real_scalar < complex_scalar < vector < tensor), so `max`-based character combination is
   // unchanged. `operator==` also enables use as a non-type template argument.
-  [[nodiscard]] friend constexpr auto operator<=>(quantity_character, quantity_character) = default;
+  /**
+   * @brief Compares two quantity characters lexicographically on (order, field)
+   *
+   * @param lhs first quantity character to compare
+   * @param rhs second quantity character to compare
+   * @return the lexicographic ordering of @p lhs and @p rhs
+   */
+  [[nodiscard]] friend constexpr auto operator<=>(quantity_character lhs, quantity_character rhs) = default;
 };
 
 }  // namespace mp_units

@@ -83,9 +83,14 @@ namespace mp_units {
  */
 MP_UNITS_EXPORT template<Quantity Q>
 struct check_in_range {
-  Q min;
-  Q max;
+  Q min;  ///< The lower boundary of the allowed range
+  Q max;  ///< The upper boundary of the allowed range
 
+  /**
+   * @brief Checks that @p v lies within [`min`, `max`] and reports a violation otherwise.
+   * @param v the value to check
+   * @return @p v unchanged, if it is within bounds
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {
@@ -115,9 +120,14 @@ check_in_range(Q, Q) -> check_in_range<Q>;
  */
 MP_UNITS_EXPORT template<Quantity Q>
 struct clamp_to_range {
-  Q min;
-  Q max;
+  Q min;  ///< The lower boundary of the allowed range
+  Q max;  ///< The upper boundary of the allowed range
 
+  /**
+   * @brief Clamps @p v to [`min`, `max`].
+   * @param v the value to clamp
+   * @return @p v if it is within bounds, otherwise the nearest boundary
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {
@@ -145,9 +155,14 @@ clamp_to_range(Q, Q) -> clamp_to_range<Q>;
  */
 MP_UNITS_EXPORT template<Quantity Q>
 struct wrap_to_range {
-  Q min;
-  Q max;
+  Q min;  ///< The lower boundary of the wrapping range (inclusive)
+  Q max;  ///< The upper boundary of the wrapping range (exclusive)
 
+  /**
+   * @brief Wraps @p v into the half-open range [`min`, `max`).
+   * @param v the value to wrap
+   * @return @p v shifted by a multiple of `max - min` so that it lies in [`min`, `max`)
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {
@@ -175,9 +190,14 @@ wrap_to_range(Q, Q) -> wrap_to_range<Q>;
  */
 MP_UNITS_EXPORT template<Quantity Q>
 struct reflect_in_range {
-  Q min;
-  Q max;
+  Q min;  ///< The lower boundary of the reflection range
+  Q max;  ///< The upper boundary of the reflection range
 
+  /**
+   * @brief Reflects @p v into the closed range [`min`, `max`].
+   * @param v the value to reflect
+   * @return @p v folded back into [`min`, `max`] by bouncing off the boundaries
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {
@@ -269,11 +289,16 @@ struct zero_quantity_t {
  * which may be disabled in release builds.
  */
 MP_UNITS_EXPORT struct check_non_negative {
-  // Lower domain bound: zero in any unit.  Consumed by quantity_point::min() and
-  // std::numeric_limits<quantity_point>::lowest().  The operator() uses V::zero() directly
-  // (no unit scaling needed); this member exists solely for the numeric_limits interface.
+  /// Lower domain bound: zero in any unit.  Consumed by quantity_point::min() and
+  /// std::numeric_limits<quantity_point>::lowest().  The operator() uses V::zero() directly
+  /// (no unit scaling needed); this member exists solely for the numeric_limits interface.
   detail::zero_quantity_t min;
 
+  /**
+   * @brief Checks that @p v is non-negative and reports a violation otherwise.
+   * @param v the value to check
+   * @return @p v unchanged, if it is non-negative
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {
@@ -295,9 +320,14 @@ MP_UNITS_EXPORT struct check_non_negative {
  * that rounds to −1e−15 J should be treated as 0 J rather than signalling an error).
  */
 MP_UNITS_EXPORT struct clamp_non_negative {
-  // Lower domain bound: zero in any unit.  See check_non_negative::min for rationale.
+  /// Lower domain bound: zero in any unit.  See check_non_negative::min for rationale.
   detail::zero_quantity_t min;
 
+  /**
+   * @brief Clamps @p v to zero if it is negative.
+   * @param v the value to clamp
+   * @return @p v if it is non-negative, otherwise zero
+   */
   template<Quantity V>
   constexpr V operator()(V v) const
   {

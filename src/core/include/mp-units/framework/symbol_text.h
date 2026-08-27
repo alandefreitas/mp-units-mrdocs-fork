@@ -44,16 +44,20 @@ import std;
 
 namespace mp_units {
 
+/// @brief Character set used to render a `symbol_text`
 // NOLINTNEXTLINE(readability-enum-initial-value)
 MP_UNITS_EXPORT enum class character_set : std::int8_t {
-  utf8,  // µs; m³;  L²MT⁻³
-  unicode [[deprecated("2.4.0: Use `utf8` instead")]] = utf8,
-  portable,  // us; m^3; L^2MT^-3
-  ascii [[deprecated("2.4.0: Use `portable` instead")]] = portable,
-  default_character_set = utf8,
-  default_encoding [[deprecated("2.5.0: Use `default_character_set` instead")]] = default_character_set
+  utf8,  ///< UTF-8 rendering, e.g. µs; m³;  L²MT⁻³
+  unicode [[deprecated("2.4.0: Use `utf8` instead")]] = utf8,  ///< Deprecated alias for `utf8`
+  portable,  ///< Portable (basic literal character set) rendering, e.g. us; m^3; L^2MT^-3
+  ascii [[deprecated("2.4.0: Use `portable` instead")]] = portable,  ///< Deprecated alias for `portable`
+  default_character_set = utf8,  ///< The character set used by default
+  /// @brief Deprecated alias for `default_character_set`
+  default_encoding [[deprecated("2.5.0: Use `default_character_set` instead")]] =
+    default_character_set
 };
 
+/// @brief Deprecated alias for `character_set`
 using text_encoding [[deprecated("2.5.0: Use `character_set` instead")]] = character_set;
 
 MP_UNITS_EXPORT template<std::size_t N, std::size_t M>
@@ -180,15 +184,27 @@ struct symbol_text_iface {
 MP_UNITS_EXPORT template<std::size_t N, std::size_t M>
 class symbol_text : public detail::symbol_text_iface {
 public:
+  /// @brief The UTF-8 rendering of the symbol
   fixed_u8string<N> utf8_;
+  /// @brief The portable (basic literal character set) rendering of the symbol
   fixed_string<M> portable_;
 
+  /**
+   * @brief Constructs a symbol text from a single character
+   *
+   * @param ch character used for both the UTF-8 and the portable rendering
+   */
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
   [[nodiscard]] constexpr explicit(false) symbol_text(char ch) : utf8_(static_cast<char8_t>(ch)), portable_(ch)
   {
     MP_UNITS_PRECONDITION(detail::is_basic_literal_character_set_char(ch));
   }
 
+  /**
+   * @brief Constructs a symbol text from a narrow string literal
+   *
+   * @param txt string literal used for both the UTF-8 and the portable rendering
+   */
   // NOLINTNEXTLINE(*-avoid-c-arrays, google-explicit-constructor, hicpp-explicit-conversions)
   [[nodiscard]] consteval explicit(false) symbol_text(const char (&txt)[N + 1]) :
       utf8_(detail::to_u8string(basic_fixed_string{txt})), portable_(txt)
@@ -197,6 +213,11 @@ public:
     MP_UNITS_PRECONDITION(detail::is_basic_literal_character_set(txt));
   }
 
+  /**
+   * @brief Constructs a symbol text from a fixed string
+   *
+   * @param txt fixed string used for both the UTF-8 and the portable rendering
+   */
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
   [[nodiscard]] constexpr explicit(false) symbol_text(const fixed_string<N>& txt) :
       utf8_(detail::to_u8string(txt)), portable_(txt)
@@ -204,6 +225,12 @@ public:
     MP_UNITS_PRECONDITION(detail::is_basic_literal_character_set(txt.data_));
   }
 
+  /**
+   * @brief Constructs a symbol text from separate UTF-8 and portable string literals
+   *
+   * @param u UTF-8 string literal defining the UTF-8 rendering
+   * @param a narrow string literal defining the portable rendering
+   */
   // NOLINTNEXTLINE(*-avoid-c-arrays)
   [[nodiscard]] consteval symbol_text(const char8_t (&u)[N + 1], const char (&a)[M + 1]) : utf8_(u), portable_(a)
   {
@@ -212,17 +239,43 @@ public:
     MP_UNITS_PRECONDITION(detail::is_basic_literal_character_set(a));
   }
 
+  /**
+   * @brief Constructs a symbol text from separate UTF-8 and portable fixed strings
+   *
+   * @param utf8 fixed string defining the UTF-8 rendering
+   * @param portable fixed string defining the portable rendering
+   */
   [[nodiscard]] constexpr symbol_text(const fixed_u8string<N>& utf8, const fixed_string<M>& portable) :
       utf8_(utf8), portable_(portable)
   {
     MP_UNITS_PRECONDITION(detail::is_basic_literal_character_set(portable.data_));
   }
 
+  /**
+   * @brief Returns the UTF-8 rendering of the symbol
+   * @return the UTF-8 rendering of the symbol
+   */
   [[nodiscard]] constexpr const auto& utf8() const { return utf8_; }
+  /**
+   * @brief Returns the portable rendering of the symbol
+   * @return the portable rendering of the symbol
+   */
   [[nodiscard]] constexpr const auto& portable() const { return portable_; }
+  /**
+   * @brief Deprecated accessor for the UTF-8 rendering; use `utf8()` instead
+   * @return the UTF-8 rendering of the symbol
+   */
   [[deprecated("2.4.0: Use `utf8()` instead")]] constexpr const auto& unicode() const { return utf8(); }
+  /**
+   * @brief Deprecated accessor for the portable rendering; use `portable()` instead
+   * @return the portable rendering of the symbol
+   */
   [[deprecated("2.4.0: Use `portable()` instead")]] constexpr const auto& ascii() const { return portable(); }
 
+  /**
+   * @brief Checks whether both the UTF-8 and the portable renderings of the symbol are empty
+   * @return `true` if both the UTF-8 and the portable renderings are empty, `false` otherwise
+   */
   [[nodiscard]] constexpr bool empty() const
   {
     MP_UNITS_ASSERT_DEBUG(utf8().empty() == portable().empty());
@@ -230,17 +283,22 @@ public:
   }
 };
 
+/// @brief Deduction guide for a `symbol_text` constructed from a single character
 symbol_text(char) -> symbol_text<1, 1>;
 
+/// @brief Deduction guide for a `symbol_text` constructed from a narrow string literal
 template<std::size_t N>
 symbol_text(const char (&)[N]) -> symbol_text<N - 1, N - 1>;
 
+/// @brief Deduction guide for a `symbol_text` constructed from a fixed string
 template<std::size_t N>
 symbol_text(const fixed_string<N>&) -> symbol_text<N, N>;
 
+/// @brief Deduction guide for a `symbol_text` constructed from separate UTF-8 and portable string literals
 template<std::size_t N, std::size_t M>
 symbol_text(const char8_t (&)[N], const char (&)[M]) -> symbol_text<N - 1, M - 1>;
 
+/// @brief Deduction guide for a `symbol_text` constructed from separate UTF-8 and portable fixed strings
 template<std::size_t N, std::size_t M>
 symbol_text(const fixed_u8string<N>&, const fixed_string<M>&) -> symbol_text<N, M>;
 

@@ -151,7 +151,9 @@ constexpr bool ratio_one<N, N> = true;
 template<detail::SymbolicArg F, int Num, int... Den>
   requires(detail::valid_ratio<Num, Den...> && detail::positive_ratio<Num, Den...> && !detail::ratio_one<Num, Den...>)
 struct power final {
+  /// @brief The factor being raised to a power
   using _factor_ = F;
+  /// @brief The power ratio applied to `_factor_`
   static constexpr detail::ratio _exponent_{Num, Den...};
 };
 
@@ -165,6 +167,7 @@ struct expr_type_impl<power<T, Ints...>> : std::type_identity<T> {};
 
 }  // namespace detail
 
+/// @brief The underlying symbolic expression factor type, unwrapping `power` if present
 template<typename T>
 using expr_type = detail::expr_type_impl<T>::type;
 

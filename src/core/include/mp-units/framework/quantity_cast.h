@@ -56,6 +56,8 @@ namespace mp_units {
  * @note This cast does not affect the underlying value of a number stored in a quantity.
  *
  * @tparam ToQS a quantity specification to use for a target quantity
+ * @param q the quantity to cast
+ * @return the quantity with its quantity type recast to `ToQS`
  */
 template<QuantitySpec auto ToQS, typename FwdQ, Quantity Q = std::remove_cvref_t<FwdQ>>
   requires(mp_units::castable(Q::quantity_spec, ToQS)) &&
@@ -81,6 +83,8 @@ template<QuantitySpec auto ToQS, typename FwdQ, Quantity Q = std::remove_cvref_t
  * @note This cast does not affect the underlying value of a number stored in a quantity point.
  *
  * @tparam ToQS a quantity specification to use for a target quantity point
+ * @param qp the quantity point to cast
+ * @return the quantity point with its quantity type recast to `ToQS`
  */
 template<QuantitySpec auto ToQS, typename FwdQP, QuantityPoint QP = std::remove_cvref_t<FwdQP>>
   requires(mp_units::castable(QP::quantity_spec, ToQS)) &&

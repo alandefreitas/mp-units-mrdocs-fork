@@ -54,8 +54,8 @@ struct mag_constant {
 template<symbol_text Symbol, long double Value>
   requires(Value > 0)
 struct mag_constant {
-  static constexpr auto _symbol_ = Symbol;
-  static constexpr long double _value_ = Value;
+  static constexpr auto _symbol_ = Symbol;              ///< The constant's textual symbol
+  static constexpr long double _value_ = Value;         ///< The constant's numeric value
 };
 
 #endif
@@ -63,17 +63,28 @@ struct mag_constant {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // `mag()` implementation.
 
+/**
+ * @brief Deprecated placeholder retained for source compatibility
+ *
+ * @tparam N the value that was previously being factorized
+ */
 template<std::intmax_t N>
 [[deprecated("2.5.0: `known_first_factor` is no longer necessary and can simply be removed")]]
 constexpr std::optional<std::intmax_t>
   known_first_factor = std::nullopt;
 
+/**
+ * @brief A Magnitude constant equal to the value @p V
+ */
 template<detail::MagArg auto V>
   requires detail::is_nonzero_mag_arg<V>
 constexpr UnitMagnitude auto mag = detail::make_magnitude<V>();
 
 #if MP_UNITS_COMP_MSVC
 // Workaround for MSVC ICE with ratio as NTTP in make_magnitude
+/**
+ * @brief A Magnitude constant equal to the rational number @p N / @p D
+ */
 template<std::intmax_t N, std::intmax_t D>
   requires(N != 0)
 constexpr UnitMagnitude auto mag_ratio = []() consteval {
@@ -88,6 +99,9 @@ constexpr UnitMagnitude auto mag_ratio = []() consteval {
     return abs_mag;
 }();
 #else
+/**
+ * @brief A Magnitude constant equal to the rational number @p N / @p D
+ */
 template<std::intmax_t N, std::intmax_t D>
   requires(N != 0)
 constexpr UnitMagnitude auto mag_ratio = detail::make_magnitude<detail::ratio{N, D}>();
@@ -100,18 +114,24 @@ template<detail::MagArg auto Base, int Num, int Den = 1>
   requires detail::is_positive_mag_arg<Base>
 constexpr UnitMagnitude auto mag_power = pow<Num, Den>(mag<Base>);
 
-/**
- * @brief  A convenient Magnitude constant for pi, which we can manipulate like a regular number.
- */
 #if defined MP_UNITS_COMP_CLANG && MP_UNITS_COMP_CLANG < 18
+/**
+ * @brief A convenient Magnitude constant for pi, which we can manipulate like a regular number.
+ */
 inline constexpr struct pi_c final : mag_constant<symbol_text{u8"π" /* U+03C0 GREEK SMALL LETTER PI */, "pi"}> {
   static constexpr auto _value_ = std::numbers::pi_v<long double>;
 #else
+/**
+ * @brief A convenient Magnitude constant for pi, which we can manipulate like a regular number.
+ */
 inline constexpr struct pi_c final :
     mag_constant<symbol_text{u8"π" /* U+03C0 GREEK SMALL LETTER PI */, "pi"}, std::numbers::pi_v<long double> > {
 #endif
-} pi_c;
+} pi_c;  ///< The unique instance of the pi magnitude constant.
 
+/**
+ * @brief Deprecated alias for the pi Magnitude constant
+ */
 [[deprecated("2.3.0: Use `mag<pi>` instead")]] inline constexpr UnitMagnitude auto mag_pi = mag<pi_c>;
 
 MP_UNITS_EXPORT_END

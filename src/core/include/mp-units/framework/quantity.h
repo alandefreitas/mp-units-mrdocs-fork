@@ -598,26 +598,47 @@ public:
   Rep numerical_value_is_an_implementation_detail_;  ///< needs to be public for a structural type
 
   // member types and values
+  /// The reference of the quantity, as provided via the `R` template parameter.
   static constexpr Reference auto reference = R;
+  /// The quantity specification extracted from `reference`.
   static constexpr QuantitySpec auto quantity_spec = get_quantity_spec(reference);
+  /// The dimension extracted from `quantity_spec`.
   static constexpr Dimension auto dimension = get_dimension(quantity_spec);
+  /// The quantity character (tensor order and numeric field) extracted from `quantity_spec`.
   static constexpr quantity_character character = get_character(quantity_spec);
+  /// The unit extracted from `reference`.
   static constexpr Unit auto unit = get_unit(reference);
+  /// The type used to represent the numerical value of the quantity.
   using rep = Rep;
 
   // static member functions
+  /**
+   * @brief Returns a quantity holding the representation type's zero value.
+   *
+   * @return A quantity equal to `representation_values<rep>::zero()` expressed in `reference`.
+   */
   [[nodiscard]] static constexpr quantity zero() noexcept
     requires requires { representation_values<rep>::zero(); }
   {
     return {representation_values<rep>::zero(), reference};
   }
 
+  /**
+   * @brief Returns a quantity holding the representation type's lowest finite value.
+   *
+   * @return A quantity equal to `representation_values<rep>::min()` expressed in `reference`.
+   */
   [[nodiscard]] static constexpr quantity min() noexcept
     requires requires { representation_values<rep>::min(); }
   {
     return {representation_values<rep>::min(), reference};
   }
 
+  /**
+   * @brief Returns a quantity holding the representation type's highest finite value.
+   *
+   * @return A quantity equal to `representation_values<rep>::max()` expressed in `reference`.
+   */
   [[nodiscard]] static constexpr quantity max() noexcept
     requires requires { representation_values<rep>::max(); }
   {
@@ -625,37 +646,69 @@ public:
   }
 
   // construction and assignment
+  /// Default constructor. Leaves the numerical value default-initialized.
   [[nodiscard]] quantity() = default;
 
+  /**
+   * @brief Constructs a quantity from a numerical value and a reference with an equivalent unit.
+   *
+   * @param val the numerical value to store
+   * @param ref a reference whose unit is equivalent to `unit`
+   */
   template<Reference R2>
     requires(equivalent(unit, get_unit(R2{})))
-  [[nodiscard]] constexpr quantity(rep val, R2) : numerical_value_is_an_implementation_detail_(std::move(val))
+  [[nodiscard]] constexpr quantity(rep val, R2 ref) : numerical_value_is_an_implementation_detail_(std::move(val))
   {
   }
 
+  /**
+   * @brief Deleted overload that rejects truncating conversions of the numerical value.
+   *
+   * @param val the numerical value that would be truncated when converted to `rep`
+   * @param ref a reference whose unit is equivalent to `unit`
+   */
   template<typename Value, Reference R2>
     requires(equivalent(unit, get_unit(R2{}))) && (!detail::RepConstructibleFrom<rep, Value>)
-  constexpr quantity(Value val, R2)
+  constexpr quantity(Value val, R2 ref)
 #if __cpp_deleted_function
     = delete ("Conversion is truncating");
 #else
     = delete;
 #endif
 
+  /**
+   * @brief Constructs a quantity from a numerical value and a reference with a different unit.
+   *
+   * The value is first converted to the quantity of reference `ref` and then scaled to this
+   * quantity's unit.
+   *
+   * @param val the numerical value to store, expressed in the unit of `ref`
+   * @param ref a reference whose unit is not equivalent to `unit`
+   */
   template<typename FwdValue, Reference R2>
     requires(!equivalent(unit, get_unit(R2{}))) &&
             detail::QuantityConstructibleFrom<quantity, quantity<R2{}, std::remove_cvref_t<FwdValue>>>
-  [[nodiscard]] constexpr quantity(FwdValue&& val, R2) :
+  [[nodiscard]] constexpr quantity(FwdValue&& val, R2 ref) :
       quantity(::mp_units::quantity{std::forward<FwdValue>(val), R2{}})
   {
   }
 
+  /**
+   * @brief Constructs a quantity directly from a numerical value, without an explicit reference.
+   *
+   * @param val the numerical value to store
+   */
   [[nodiscard]] constexpr explicit(!mp_units::implicitly_convertible(quantity_spec, dimensionless)) quantity(rep val)
     requires detail::ExplicitFromNumber<reference>
       : numerical_value_is_an_implementation_detail_(std::move(val))
   {
   }
 
+  /**
+   * @brief Constructs a quantity from a value convertible to `rep`, without an explicit reference.
+   *
+   * @param val the numerical value to store, convertible to `rep`
+   */
   template<typename Value>
     requires detail::ExplicitFromNumber<reference> && detail::RepConstructibleFrom<rep, Value> &&
              (!std::convertible_to<Value, rep>)
@@ -663,6 +716,11 @@ public:
   {
   }
 
+  /**
+   * @brief Deleted overload that rejects truncating conversions when constructing without a reference.
+   *
+   * @param val the numerical value that would be truncated when converted to `rep`
+   */
   template<typename Value>
     requires detail::ExplicitFromNumber<reference> && (!detail::RepConstructibleFrom<rep, Value>)
   constexpr explicit(!std::convertible_to<Value, rep> ||
@@ -673,6 +731,11 @@ public:
     = delete;
 #endif
 
+  /**
+   * @brief Converting constructor from another quantity that shares an equivalent unit.
+   *
+   * @param q the source quantity to convert from
+   */
   template<auto R2, typename Rep2>
     requires detail::QuantityConstructibleFrom<quantity, quantity<R2, Rep2>> && (equivalent(unit, get_unit(R2)))
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
@@ -684,6 +747,11 @@ public:
   {
   }
 
+  /**
+   * @brief Converting constructor from another quantity whose unit needs scaling to this one.
+   *
+   * @param q the source quantity to convert from
+   */
   template<auto R2, typename Rep2>
     requires detail::QuantityConstructibleFrom<quantity, quantity<R2, Rep2>> && (!equivalent(unit, get_unit(R2)))
   // NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
@@ -695,6 +763,11 @@ public:
   {
   }
 
+  /**
+   * @brief Constructs a quantity from an external quantity-like type via `quantity_like_traits`.
+   *
+   * @param q the source value, adapted through `quantity_like_traits<Q>`
+   */
   template<QuantityLike Q>
     requires detail::QuantityConstructibleFrom<quantity, detail::quantity_like_type<Q>>
   [[nodiscard]] constexpr explicit(quantity_like_traits<Q>::explicit_import ||
@@ -704,6 +777,12 @@ public:
   {
   }
 
+  /**
+   * @brief Assigns a new numerical value to `*this`.
+   *
+   * @param val the numerical value to assign
+   * @return `*this`
+   */
   template<typename FwdValue>
     requires detail::ImplicitFromNumber<reference> && detail::RepAssignableFrom<rep, FwdValue>
   constexpr quantity& operator=(FwdValue&& val)
@@ -712,13 +791,24 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Returns this quantity re-expressed in another unit, implicitly convertible to `rep`.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity expressed in `to_u`.
+   */
   template<UnitOf<quantity_spec> ToU>
     requires detail::ImplicitScaling<unit, ToU{}, rep>
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU) const
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU to_u) const
   {
     return detail::sudo_cast<quantity<detail::make_reference(quantity_spec, ToU{}), Rep>>(*this);
   }
 
+  /**
+   * @brief Returns this quantity re-expressed with another representation type, in the same unit.
+   *
+   * @return The equivalent quantity with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep>
     requires detail::RepConstructibleFrom<ToRep, rep>
   [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in() const
@@ -726,20 +816,39 @@ public:
     return quantity<reference, ToRep>{*this};
   }
 
+  /**
+   * @brief Returns this quantity re-expressed in another unit and representation type, both implicitly convertible.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity expressed in `to_u` with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU>
     requires detail::RepConstructibleFrom<ToRep, rep> && detail::ImplicitConversion<unit, rep, ToU{}, ToRep>
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU) const
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU to_u) const
   {
     return detail::sudo_cast<quantity<detail::make_reference(quantity_spec, ToU{}), ToRep>>(*this);
   }
 
+  /**
+   * @brief Returns this quantity re-expressed in another unit, applying an explicit rounding policy.
+   *
+   * @param to_u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity expressed in `to_u`.
+   */
   template<UnitOf<quantity_spec> ToU, RoundingPolicy Policy>
     requires detail::ExplicitlyCastable<unit, ToU{}, rep> && detail::ValidRoundingPolicyFor<Policy, rep, rep>
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU, Policy policy) const
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU to_u, Policy policy) const
   {
     return value_cast<ToU{}>(*this, policy);
   }
 
+  /**
+   * @brief Returns this quantity re-expressed with another representation type, applying an explicit rounding policy.
+   *
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, RoundingPolicy Policy>
     requires std::constructible_from<ToRep, rep> && detail::ValidRoundingPolicyFor<Policy, rep, ToRep>
   [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(Policy policy) const
@@ -747,23 +856,43 @@ public:
     return value_cast<ToRep>(*this, policy);
   }
 
+  /**
+   * @brief Returns this quantity re-expressed in another unit and representation type, applying an explicit rounding policy.
+   *
+   * @param to_u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The equivalent quantity expressed in `to_u` with representation type `ToRep`.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU, RoundingPolicy Policy>
     requires std::constructible_from<ToRep, rep> && detail::ExplicitlyCastable<unit, ToU{}, ToRep> &&
              detail::ValidRoundingPolicyFor<Policy, rep, ToRep>
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU, Policy policy) const
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto in(ToU to_u, Policy policy) const
   {
     return value_cast<ToU{}, ToRep>(*this, policy);
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity re-expressed in another unit, truncating if inexact.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity expressed in `to_u`.
+   * @deprecated Since 2.6.0; use `in(unit, policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<UnitOf<quantity_spec> ToU>
     requires detail::ExplicitlyCastable<unit, ToU{}, rep>
   [[deprecated(
     "2.6.0: use `in(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr QuantityOf<quantity_spec> auto force_in(ToU) const
+    "instead")]] [[nodiscard]] constexpr QuantityOf<quantity_spec> auto force_in(ToU to_u) const
   {
     return in(ToU{}, truncated);
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity re-expressed with another representation type, truncating if inexact.
+   *
+   * @return The equivalent quantity with representation type `ToRep`.
+   * @deprecated Since 2.6.0; use `in<Rep>(policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<RepresentationOf<quantity_spec> ToRep>
     requires std::constructible_from<ToRep, rep>
   [[deprecated("2.6.0: use `in<Rep>(policy)` with a rounding policy (e.g. `truncated`) instead")]] [[nodiscard]]
@@ -772,25 +901,37 @@ public:
     return in<ToRep>(truncated);
   }
 
+  /**
+   * @brief Deprecated. Returns this quantity re-expressed in another unit and representation type, truncating if inexact.
+   *
+   * @param to_u the target unit
+   * @return The equivalent quantity expressed in `to_u` with representation type `ToRep`.
+   * @deprecated Since 2.6.0; use `in<Rep>(unit, policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<RepresentationOf<quantity_spec> ToRep, UnitOf<quantity_spec> ToU>
     requires std::constructible_from<ToRep, rep> && detail::ExplicitlyCastable<unit, ToU{}, rep>
   [[deprecated(
     "2.6.0: use `in<Rep>(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr QuantityOf<quantity_spec> auto force_in(ToU) const
+    "instead")]] [[nodiscard]] constexpr QuantityOf<quantity_spec> auto force_in(ToU to_u) const
   {
     return in<ToRep>(ToU{}, truncated);
   }
 
-  // Euclidean (or, for a complex field, Hermitian) norm of a vector or tensor quantity, as a scalar
-  // quantity in the same unit. The two-part constraint is deliberate: `order >= vector` is the
-  // character guard (a scalar such as `isq::speed` has no magnitude, though the `magnitude` CPO would
-  // gladly run `std::abs` on its `double`), and `HasMagnitude<rep>` ensures the storage can deliver one.
-  //
-  // Returning `* unit` drops the precise `quantity_spec` to the unit's kind: a V2 convenience, since V2
-  // cannot name the right result type (a scalar-magnitude spec like `vec_mag<isq::force>[N]` is a V3
-  // feature). This does not fix the character in general - it collapses to `real_scalar` only for units
-  // built from scalar base units (e.g. `km/h`); for one tied to a vector spec (e.g. `N`) the result
-  // keeps `vector` character, so one could even take the magnitude of a magnitude. A known V2 limitation.
+  /**
+   * @brief Computes the Euclidean (or, for a complex field, Hermitian) norm of a vector or tensor quantity.
+   *
+   * The two-part constraint is deliberate: `order >= vector` is the character guard (a scalar such
+   * as `isq::speed` has no magnitude, though the `magnitude` CPO would gladly run `std::abs` on its
+   * `double`), and `HasMagnitude<rep>` ensures the storage can deliver one.
+   *
+   * Returning `* unit` drops the precise `quantity_spec` to the unit's kind: a V2 convenience, since V2
+   * cannot name the right result type (a scalar-magnitude spec like `vec_mag<isq::force>[N]` is a V3
+   * feature). This does not fix the character in general - it collapses to `real_scalar` only for units
+   * built from scalar base units (e.g. `km/h`); for one tied to a vector spec (e.g. `N`) the result
+   * keeps `vector` character, so one could even take the magnitude of a magnitude. A known V2 limitation.
+   *
+   * @return The norm of the numerical value, as a scalar quantity in the same unit.
+   */
   [[nodiscard]] constexpr Quantity auto magnitude() const
     requires(get_character(quantity_spec).order >= quantity_tensor_order::vector) && detail::HasMagnitude<rep>
   {
@@ -798,53 +939,95 @@ public:
   }
 
   // data access
+  /**
+   * @brief Returns a mutable reference to the numerical value, in a unit equivalent to `unit`.
+   *
+   * @param u a unit equivalent to `unit`
+   * @return A reference to the stored numerical value.
+   */
   template<Unit U>
     requires(equivalent(U{}, unit))
-  [[nodiscard]] constexpr rep& numerical_value_ref_in(U) & noexcept
+  [[nodiscard]] constexpr rep& numerical_value_ref_in(U u) & noexcept
   {
     return numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Returns a const reference to the numerical value, in a unit equivalent to `unit`.
+   *
+   * @param u a unit equivalent to `unit`
+   * @return A const reference to the stored numerical value.
+   */
   template<Unit U>
     requires(equivalent(U{}, unit))
-  [[nodiscard]] constexpr const rep& numerical_value_ref_in(U) const& noexcept
+  [[nodiscard]] constexpr const rep& numerical_value_ref_in(U u) const& noexcept
   {
     return numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Deleted overload that prevents forming a reference into a temporary quantity.
+   *
+   * @param u a unit equivalent to `unit`
+   */
   template<Unit U>
     requires(equivalent(U{}, unit))
-  constexpr const rep&& numerical_value_ref_in(U) const&& noexcept
+  constexpr const rep&& numerical_value_ref_in(U u) const&& noexcept
 #if __cpp_deleted_function
     = delete ("Can't form a reference to a temporary");
 #else
     = delete;
 #endif
 
+  /**
+   * @brief Returns the numerical value converted to another unit implicitly convertible to `rep`.
+   *
+   * @param u the target unit
+   * @return The numerical value expressed in `u`.
+   */
   template<UnitOf<quantity_spec> U>
     requires detail::ImplicitScaling<unit, U{}, rep>
-  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U) const noexcept
+  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U u) const noexcept
   {
     return in(U{}).numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Returns the numerical value converted to another unit, applying an explicit rounding policy.
+   *
+   * @param u the target unit
+   * @param policy the rounding policy to apply when the conversion is not exact
+   * @return The numerical value expressed in `u`.
+   */
   template<UnitOf<quantity_spec> U, RoundingPolicy Policy>
     requires detail::ExplicitlyCastable<unit, U{}, rep> && detail::ValidRoundingPolicyFor<Policy, rep, rep>
-  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U, Policy policy) const noexcept
+  [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto numerical_value_in(U u, Policy policy) const noexcept
   {
     return in(U{}, policy).numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Deprecated. Returns the numerical value converted to another unit, truncating if inexact.
+   *
+   * @param u the target unit
+   * @return The numerical value expressed in `u`.
+   * @deprecated Since 2.6.0; use `numerical_value_in(unit, policy)` with a rounding policy (e.g. `truncated`) instead.
+   */
   template<UnitOf<quantity_spec> U>
     requires detail::ExplicitlyCastable<unit, U{}, rep>
   [[deprecated(
     "2.6.0: use `numerical_value_in(unit, policy)` with a rounding policy (e.g. `truncated`) "
-    "instead")]] [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto force_numerical_value_in(U) const noexcept
+    "instead")]] [[nodiscard]] constexpr RepresentationOf<quantity_spec> auto force_numerical_value_in(U u) const noexcept
   {
     return numerical_value_in(U{}, truncated);
   }
 
   // conversion operators
+  /**
+   * @brief Explicitly converts the quantity to its bare numerical value.
+   *
+   * @return The stored numerical value.
+   */
   template<typename V_, std::constructible_from<rep> Value = std::remove_cvref_t<V_>>
     requires detail::ExplicitFromNumber<reference>
   [[nodiscard]] explicit constexpr operator V_() const& noexcept
@@ -852,6 +1035,11 @@ public:
     return numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Converts the quantity to an external quantity-like type via `quantity_like_traits`.
+   *
+   * @return The value produced by `quantity_like_traits<Q>::from_numerical_value`.
+   */
   template<typename Q_, QuantityLike Q = std::remove_cvref_t<Q_>>
     requires detail::QuantityConstructibleFrom<detail::quantity_like_type<Q>, quantity>
   [[nodiscard]] explicit(quantity_like_traits<Q>::explicit_export ||
@@ -866,6 +1054,11 @@ public:
   }
 
   // member unary operators
+  /**
+   * @brief Applies unary `+` to the numerical value.
+   *
+   * @return A quantity holding `+numerical_value`, in the same reference.
+   */
   [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator+() const
     requires requires(const rep v) {
       { +v } -> std::common_with<rep>;
@@ -874,6 +1067,11 @@ public:
     return ::mp_units::quantity{+numerical_value_is_an_implementation_detail_, reference};
   }
 
+  /**
+   * @brief Negates the numerical value.
+   *
+   * @return A quantity holding `-numerical_value`, in the same reference.
+   */
   [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator-() const
     requires requires(const rep v) {
       { -v } -> std::common_with<rep>;
@@ -882,6 +1080,11 @@ public:
     return ::mp_units::quantity{-numerical_value_is_an_implementation_detail_, reference};
   }
 
+  /**
+   * @brief Pre-increments the numerical value.
+   *
+   * @return `*this`, after the increment.
+   */
   constexpr quantity& operator++() &
     requires requires(rep& v) {
       { ++v } -> std::same_as<rep&>;
@@ -891,7 +1094,14 @@ public:
     return *this;
   }
 
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator++(int)
+  /**
+   * @brief Post-increments the numerical value.
+   *
+   * @param unused_tag An unused tag parameter that distinguishes this overload as the
+   * post-increment operator.
+   * @return A quantity holding the value of `*this` before the increment.
+   */
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator++([[maybe_unused]] int unused_tag)
     requires requires(rep& v) {
       { v++ } -> std::common_with<rep>;
     }
@@ -899,6 +1109,11 @@ public:
     return ::mp_units::quantity{numerical_value_is_an_implementation_detail_++, reference};
   }
 
+  /**
+   * @brief Pre-decrements the numerical value.
+   *
+   * @return `*this`, after the decrement.
+   */
   constexpr quantity& operator--() &
     requires requires(rep& v) {
       { --v } -> std::same_as<rep&>;
@@ -908,7 +1123,14 @@ public:
     return *this;
   }
 
-  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator--(int)
+  /**
+   * @brief Post-decrements the numerical value.
+   *
+   * @param unused_tag An unused tag parameter that distinguishes this overload as the
+   * post-decrement operator.
+   * @return A quantity holding the value of `*this` before the decrement.
+   */
+  [[nodiscard]] constexpr QuantityOf<quantity_spec> auto operator--([[maybe_unused]] int unused_tag)
     requires requires(rep& v) {
       { v-- } -> std::common_with<rep>;
     }
@@ -917,6 +1139,12 @@ public:
   }
 
   // compound assignment operators
+  /**
+   * @brief Adds another quantity to `*this` and assigns the result to `*this`.
+   *
+   * @param other the quantity to add
+   * @return `*this`
+   */
   template<auto R2, typename Rep2>
     requires(mp_units::implicitly_convertible(get_quantity_spec(R2), quantity_spec)) &&
             detail::ImplicitConversion<get_unit(R2), Rep2, unit, rep> && requires(rep& a, const Rep2 b) {
@@ -931,6 +1159,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Subtracts another quantity from `*this` and assigns the result to `*this`.
+   *
+   * @param other the quantity to subtract
+   * @return `*this`
+   */
   template<auto R2, typename Rep2>
     requires(mp_units::implicitly_convertible(get_quantity_spec(R2), quantity_spec)) &&
             detail::ImplicitConversion<get_unit(R2), Rep2, unit, rep> && requires(rep& a, const Rep2 b) {
@@ -945,6 +1179,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Computes the remainder of division by another quantity and assigns it to `*this`.
+   *
+   * @param other the divisor quantity
+   * @return `*this`
+   */
   template<auto R2, typename Rep2>
     requires(!treat_as_floating_point<rep>) &&
             (mp_units::implicitly_convertible(get_quantity_spec(R2), quantity_spec)) &&
@@ -961,6 +1201,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Multiplies `*this` by a scalar value and assigns the result to `*this`.
+   *
+   * @param val the scalar value to multiply by
+   * @return `*this`
+   */
   template<detail::ScalarRepConvertible<rep> Value>
     requires requires(rep& a, const Value b) {
       { a *= b } -> std::same_as<rep&>;
@@ -971,6 +1217,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Multiplies `*this` by a dimensionless quantity and assigns the result to `*this`.
+   *
+   * @param other the dimensionless quantity to multiply by
+   * @return `*this`
+   */
   template<detail::ImplicitFromNumberQuantity Q2>
     requires detail::ScalarRepConvertible<typename Q2::rep, rep> && requires(rep& a, const Q2::rep b) {
       { a *= b } -> std::same_as<rep&>;
@@ -980,6 +1232,12 @@ public:
     return *this *= other.numerical_value_is_an_implementation_detail_;
   }
 
+  /**
+   * @brief Divides `*this` by a scalar value and assigns the result to `*this`.
+   *
+   * @param val the scalar value to divide by
+   * @return `*this`
+   */
   template<detail::ScalarRepConvertible<rep> Value>
     requires requires(rep& a, const Value b) {
       { a /= b } -> std::same_as<rep&>;
@@ -991,6 +1249,12 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Divides `*this` by a dimensionless quantity and assigns the result to `*this`.
+   *
+   * @param rhs the dimensionless quantity to divide by
+   * @return `*this`
+   */
   template<detail::ImplicitFromNumberQuantity Q2>
     requires detail::ScalarRepConvertible<typename Q2::rep, rep> && requires(rep& a, const Q2::rep b) {
       { a /= b } -> std::same_as<rep&>;
@@ -1005,14 +1269,31 @@ public:
 // The stored representation is canonicalized (see `representation_canonical_type`) so that an
 // expression-template value (e.g. the result of `Eigen::Vector3d * double`) is materialized to
 // its evaluated concrete type instead of being stored as a proxy holding dangling references.
+/**
+ * @brief Deduces a `quantity` from a numerical value and an explicit reference.
+ *
+ * @tparam R the reference type
+ * @tparam Value the numerical value type
+ */
 template<Reference R, typename Value>
   requires RepresentationOf<representation_canonical_type_t<Value>, get_quantity_spec(R{})>
 quantity(Value v, R) -> quantity<R{}, representation_canonical_type_t<Value>>;
 
+/**
+ * @brief Deduces a `quantity` from a numerical value alone, using the `one` reference by default.
+ *
+ * @tparam R the reference to use, defaulting to `one`
+ * @tparam Value the numerical value type
+ */
 template<Reference auto R = one, typename Value>
   requires RepresentationOf<representation_canonical_type_t<Value>, get_quantity_spec(R)>
 quantity(Value) -> quantity<R, representation_canonical_type_t<Value>>;
 
+/**
+ * @brief Deduces a `quantity` from an external quantity-like type via `quantity_like_traits`.
+ *
+ * @tparam Q the external quantity-like type
+ */
 template<QuantityLike Q>
 quantity(Q) -> quantity<quantity_like_traits<Q>::reference, typename quantity_like_traits<Q>::rep>;
 

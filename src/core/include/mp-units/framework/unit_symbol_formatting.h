@@ -38,34 +38,45 @@ import std;
 MP_UNITS_EXPORT
 namespace mp_units {
 
+/**
+ * @brief Specifies how the solidus (`/`) is used when formatting a unit symbol's denominator
+ */
 // NOLINTNEXTLINE(readability-enum-initial-value)
 enum class unit_symbol_solidus : std::int8_t {
-  one_denominator,  // m/s;   kg m⁻¹ s⁻¹
-  always,           // m/s;   kg/(m s)
-  never,            // m s⁻¹; kg m⁻¹ s⁻¹
-  default_solidus = one_denominator
+  one_denominator,  ///< A solidus is used only if there is exactly one unit in the denominator (e.g. `m/s`; `kg m⁻¹ s⁻¹`)
+  always,           ///< A solidus is always used for a non-empty denominator (e.g. `m/s`; `kg/(m s)`)
+  never,            ///< A solidus is never used; negative exponents are used instead (e.g. `m s⁻¹`; `kg m⁻¹ s⁻¹`)
+  default_solidus = one_denominator  ///< The default solidus behavior, equal to `one_denominator`
 };
 
+/**
+ * @brief Specifies the separator placed between the symbols of a unit symbol's factors
+ */
 // NOLINTNEXTLINE(readability-enum-initial-value)
 enum class unit_symbol_separator : std::int8_t {
-  space,          // kg m²/s²
-  half_high_dot,  // kg⋅m²/s²  (valid only for utf8 encoding)
-  default_separator = space
+  space,          ///< Factors are separated with a space (e.g. `kg m²/s²`)
+  half_high_dot,  ///< Factors are separated with a half-high dot (e.g. `kg⋅m²/s²`); valid only for utf8 encoding
+  default_separator = space  ///< The default separator, equal to `space`
 };
 
+/**
+ * @brief Specifies the options used to format a unit symbol
+ */
 struct unit_symbol_formatting {
 #if MP_UNITS_COMP_CLANG
   // TODO prevents the deprecated usage in implicit copy constructor warning
-  character_set char_set = character_set::default_character_set;
+  character_set char_set = character_set::default_character_set;  ///< The character set used to format the symbol
 #else
   [[deprecated("2.5.0: Use `char_set` instead")]] character_set encoding = character_set::default_character_set;
   MP_UNITS_DIAGNOSTIC_PUSH
   MP_UNITS_DIAGNOSTIC_IGNORE_DEPRECATED
-  character_set char_set = encoding;
+  character_set char_set = encoding;  ///< The character set used to format the symbol
   MP_UNITS_DIAGNOSTIC_POP
 #endif
 
-  unit_symbol_solidus solidus = unit_symbol_solidus::default_solidus;
+  unit_symbol_solidus solidus = unit_symbol_solidus::default_solidus;  ///< How the solidus is used in the denominator
+
+  /// The separator placed between symbol factors.
   unit_symbol_separator separator = unit_symbol_separator::default_separator;
 };
 

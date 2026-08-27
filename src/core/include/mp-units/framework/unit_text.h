@@ -70,6 +70,9 @@ MP_UNITS_EXPORT_BEGIN
 template<Unit auto U>
 constexpr bool space_before_unit_symbol = true;
 
+/**
+ * @brief Specialization disabling the space before the symbol of the dimensionless unit `one`
+ */
 template<>
 MP_UNITS_INLINE constexpr bool space_before_unit_symbol<one> = false;
 
@@ -196,6 +199,15 @@ template<typename CharT, std::output_iterator<CharT> Out, typename... Expr>
 
 }  // namespace detail
 
+/**
+ * @brief Writes the textual symbol of a unit to an output iterator
+ *
+ * @tparam CharT the character type used to represent the symbol
+ * @param out the output iterator to write the symbol to
+ * @param u the unit to obtain the symbol of
+ * @param fmt the formatting options to use
+ * @return an iterator past the last character written
+ */
 MP_UNITS_EXPORT template<typename CharT = char, std::output_iterator<CharT> Out, Unit U>
 constexpr Out unit_symbol_to(Out out, U u, const unit_symbol_formatting& fmt = unit_symbol_formatting{})
 {
@@ -221,9 +233,18 @@ constexpr auto unit_symbol_result = unit_symbol_impl<fmt, CharT>(U{});
 
 }  // namespace detail
 
+/**
+ * @brief Returns the textual symbol of a unit
+ *
+ * @tparam fmt the formatting options to use
+ * @tparam CharT the character type used to represent the symbol
+ * @tparam U the unit to obtain the symbol of
+ * @param u the unit to obtain the symbol of
+ * @return a view over the unit's symbol
+ */
 // TODO Refactor to `unit_symbol(U, fmt)` when P1045: constexpr Function Parameters is available
 MP_UNITS_EXPORT template<unit_symbol_formatting fmt = unit_symbol_formatting{}, typename CharT = char, Unit U>
-[[nodiscard]] consteval std::basic_string_view<CharT> unit_symbol(U)
+[[nodiscard]] consteval std::basic_string_view<CharT> unit_symbol(U u)
 {
   return detail::unit_symbol_result<fmt, CharT, U>.view();
 }

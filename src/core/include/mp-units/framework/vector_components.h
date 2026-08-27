@@ -134,9 +134,11 @@ concept ValidVectorAxes =
 MP_UNITS_EXPORT template<QuantitySpec auto... Axes>
   requires detail::ValidVectorAxes<Axes...>
 struct vector_axes {
+  /// The number of component axes.
   static constexpr std::size_t size = sizeof...(Axes);
 
   // the I-th axis spec (C++26 pack indexing with a portable recursive fallback)
+  /// The quantity spec of the `Idx`-th component axis, in the order the axes were listed.
   template<std::size_t Idx>
   static constexpr QuantitySpec auto axis =
 #if defined(__cpp_pack_indexing) && __cplusplus > 202302

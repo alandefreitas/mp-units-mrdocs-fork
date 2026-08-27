@@ -201,15 +201,25 @@ struct derived_dimension final : detail::dimension_interface, detail::derived_di
 MP_UNITS_EXPORT inline constexpr struct dimension_one final :
     detail::dimension_interface,
     detail::derived_dimension_impl<> {
-} dimension_one;
+} dimension_one;  ///< The unique instance of the dimension one.
 
 MP_UNITS_EXPORT_BEGIN
 
+/**
+ * @brief Computes the inverse of a dimension.
+ *
+ * @param d the dimension to invert
+ * @return `dimension_one / d`
+ */
 [[nodiscard]] consteval Dimension auto inverse(Dimension auto d) { return dimension_one / d; }
 
+/**
+ * @brief Formatting options for `dimension_symbol` and `dimension_symbol_to`.
+ */
 struct dimension_symbol_formatting {
 #if MP_UNITS_COMP_CLANG
   // TODO prevents the deprecated usage in implicit copy constructor warning
+  /// @brief The character set to use when rendering a dimension symbol.
   character_set char_set = character_set::default_character_set;
 #else
   [[deprecated("2.5.0: Use `char_set` instead")]] character_set encoding = character_set::default_character_set;
@@ -278,6 +288,15 @@ template<typename CharT, std::output_iterator<CharT> Out, typename... Expr>
 
 }  // namespace detail
 
+/**
+ * @brief Writes the textual symbol of a dimension to an output iterator.
+ *
+ * @tparam CharT the character type of the output symbol
+ * @param out the output iterator to write to
+ * @param d the dimension to render
+ * @param fmt the formatting options to use
+ * @return an iterator past the last written character
+ */
 MP_UNITS_EXPORT template<typename CharT = char, std::output_iterator<CharT> Out, Dimension D>
 constexpr Out dimension_symbol_to(Out out, D d, const dimension_symbol_formatting& fmt = dimension_symbol_formatting{})
 {
@@ -304,15 +323,30 @@ constexpr auto dimension_symbol_result = dimension_symbol_impl<fmt, CharT>(D{});
 }  // namespace detail
 
 // TODO Refactor to `dimension_symbol(D, fmt)` when P1045: constexpr Function Parameters is available
+/**
+ * @brief Returns the textual symbol of a dimension as a `std::basic_string_view`.
+ *
+ * @tparam fmt the formatting options to use
+ * @tparam CharT the character type of the returned symbol
+ * @param d the dimension to render
+ * @return a view of the dimension's symbol
+ */
 MP_UNITS_EXPORT template<dimension_symbol_formatting fmt = dimension_symbol_formatting{}, typename CharT = char,
                          Dimension D>
-[[nodiscard]] consteval std::basic_string_view<CharT> dimension_symbol(D)
+[[nodiscard]] consteval std::basic_string_view<CharT> dimension_symbol(D d)
 {
   return detail::dimension_symbol_result<fmt, CharT, D>.view();
 }
 
 #if MP_UNITS_HOSTED
 
+/**
+ * @brief Streams the textual symbol of a dimension to a `std::basic_ostream`.
+ *
+ * @param os the output stream to write to
+ * @param d the dimension to render
+ * @return `os`
+ */
 MP_UNITS_EXPORT template<typename CharT, typename Traits, Dimension D>
 std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, D d)
 {

@@ -75,25 +75,37 @@ MP_UNITS_EXPORT_BEGIN
  * result (e.g. for a floating-point representation). The policies never adjust a value that
  * the destination represents exactly. Both coincide for integral representations.
  */
+/// @brief Tag type for the `truncated` rounding policy
 struct truncated_t {
+  /// @brief Default constructor
   explicit truncated_t() = default;
 };
 
+/// @brief Tag type for the `rounded` rounding policy
 struct rounded_t {
+  /// @brief Default constructor
   explicit rounded_t() = default;
 };
 
+/// @brief Tag type for the `rounded_down` rounding policy
 struct rounded_down_t {
+  /// @brief Default constructor
   explicit rounded_down_t() = default;
 };
 
+/// @brief Tag type for the `rounded_up` rounding policy
 struct rounded_up_t {
+  /// @brief Default constructor
   explicit rounded_up_t() = default;
 };
 
+/// @brief Rounding policy that rounds towards zero for an integral destination
 inline constexpr truncated_t truncated{};
+/// @brief Rounding policy that rounds to the nearest representable value, to even in halfway cases
 inline constexpr rounded_t rounded{};
+/// @brief Rounding policy that rounds towards negative infinity
 inline constexpr rounded_down_t rounded_down{};
+/// @brief Rounding policy that rounds towards positive infinity
 inline constexpr rounded_up_t rounded_up{};
 
 /**

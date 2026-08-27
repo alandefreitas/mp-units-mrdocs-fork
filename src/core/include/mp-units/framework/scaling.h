@@ -292,6 +292,10 @@ template<typename To, rounding_mode Mode, UnitMagnitude M, typename From>
  *
  * Use this in custom `operator*(T, UnitMagnitude)` implementations to reuse the
  * library's built-in scaling logic instead of duplicating it.
+ *
+ * @param m unit magnitude to scale @p value by
+ * @param value value being scaled
+ * @return @p value scaled by @p m, truncated to type @c To
  */
 MP_UNITS_EXPORT template<typename To, UnitMagnitude M, typename From>
   requires detail::UnitMagnitudeScalable<From>
@@ -303,10 +307,15 @@ MP_UNITS_EXPORT template<typename To, UnitMagnitude M, typename From>
 /**
  * @brief Scale @p value by the unit magnitude passed as @p m, converting to type @c To,
  *        with the result rounded according to @p policy.
+ *
+ * @param m unit magnitude to scale @p value by
+ * @param value value being scaled
+ * @param policy rounding policy tag selecting how the scaled result is rounded
+ * @return @p value scaled by @p m, rounded to type @c To according to @p policy
  */
 MP_UNITS_EXPORT template<typename To, UnitMagnitude M, typename From, RoundingPolicy Policy>
   requires detail::UnitMagnitudeScalable<From>
-[[nodiscard]] constexpr auto scale(M m, const From& value, Policy)
+[[nodiscard]] constexpr auto scale(M m, const From& value, Policy policy)
 {
   return detail::scale_impl<To, detail::rounding_mode_of<Policy>>(m, value);
 }

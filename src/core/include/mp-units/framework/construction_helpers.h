@@ -37,8 +37,15 @@ import std;
 
 namespace mp_units {
 
+/// Function object that builds a `quantity` of reference `R` from a raw representation value
 template<Reference R>
 struct delta_ {
+  /**
+   * @brief Constructs a `quantity` of reference `R` from a raw representation value
+   *
+   * @param lhs The raw representation value to wrap in a `quantity`
+   * @return A `quantity` of reference `R` holding `lhs`
+   */
   template<typename FwdRep, RepresentationOf<get_quantity_spec(R{})> Rep = std::remove_cvref_t<FwdRep>>
   [[nodiscard]] constexpr quantity<R{}, Rep> operator()(FwdRep && lhs) const
   {
@@ -46,8 +53,15 @@ struct delta_ {
   }
 };
 
+/// Function object that builds a `quantity_point` of reference `R` from a raw representation value
 template<Reference R>
 struct point_ {
+  /**
+   * @brief Constructs a `quantity_point` of reference `R` from a raw representation value
+   *
+   * @param lhs The raw representation value to wrap in a `quantity_point`
+   * @return A `quantity_point` of reference `R`, relative to the default point origin, holding `lhs`
+   */
   template<typename FwdRep, RepresentationOf<get_quantity_spec(R{})> Rep = std::remove_cvref_t<FwdRep>>
   [[nodiscard]] constexpr quantity_point<R{}, default_point_origin(R{}), Rep> operator()(FwdRep && lhs) const
   {
@@ -57,12 +71,15 @@ struct point_ {
 
 MP_UNITS_EXPORT_BEGIN
 
+/// Callable object that constructs a `quantity` of reference `R` from a raw representation value
 template<Reference auto R>
 constexpr delta_<MP_UNITS_REMOVE_CONST(decltype(R))> delta{};
 
+/// Callable object that constructs a `quantity_point` of reference `R` from a raw representation value
 template<Reference auto R>
 constexpr point_<MP_UNITS_REMOVE_CONST(decltype(R))> point{};
 
+/// Callable object that constructs a `quantity_point` of reference `R` from a raw representation value
 template<Reference auto R>
 [[deprecated("2.5.0: Use `point` instead")]] constexpr point_<MP_UNITS_REMOVE_CONST(decltype(R))> absolute{};
 

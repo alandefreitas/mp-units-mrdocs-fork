@@ -53,6 +53,12 @@ namespace mp_units::utility {
 // Error policy concept
 // ============================================================================
 
+/**
+ * @brief Concept satisfied by error policy types usable with @ref constrained.
+ *
+ * Requires a static `on_constraint_violation(std::string_view)` member that reports a
+ * domain constraint violation.
+ */
 MP_UNITS_EXPORT template<typename EP>
 concept ConstraintPolicy = requires(std::string_view msg) { EP::on_constraint_violation(msg); };
 
@@ -67,7 +73,11 @@ concept ConstraintPolicy = requires(std::string_view msg) { EP::on_constraint_vi
  * @brief Error policy that terminates the program on constraint violation (freestanding-safe).
  */
 MP_UNITS_EXPORT struct terminate_policy {
-  [[noreturn]] static void on_constraint_violation(std::string_view) noexcept { std::abort(); }
+  /**
+   * @brief Reports a constraint violation by terminating the program.
+   * @param msg description of the violated constraint (unused; the program terminates regardless)
+   */
+  [[noreturn]] static void on_constraint_violation(std::string_view msg) noexcept { std::abort(); }
 };
 
 #if MP_UNITS_HOSTED
@@ -76,6 +86,10 @@ MP_UNITS_EXPORT struct terminate_policy {
  * @brief Error policy that throws std::domain_error on constraint violation (hosted only).
  */
 MP_UNITS_EXPORT struct throw_policy {
+  /**
+   * @brief Reports a constraint violation by throwing `std::domain_error`.
+   * @param msg description of the violated constraint
+   */
   [[noreturn]] static void on_constraint_violation(std::string_view msg) { throw std::domain_error(std::string(msg)); }
 };
 
@@ -98,6 +112,12 @@ class constrained;
 
 namespace detail {
 
+/**
+ * @brief Base class injecting the hidden-friend binary operators for @ref mp_units::utility::constrained.
+ *
+ * @ref mp_units::utility::constrained inherits from this class so that its heterogeneous
+ * arithmetic and comparison operators are found only via ADL, as described above.
+ */
 struct constrained_binary_ops {
   // -- Binary arithmetic (+, -, *, /, %) --
   template<typename T, typename EP, typename U>
@@ -215,18 +235,40 @@ MP_UNITS_EXPORT template<typename T,
 class constrained : detail::constrained_binary_ops {
 public:
   // public members required to satisfy structural type requirements :-(
-  T value_{};
+  T value_{};  ///< The wrapped underlying value
+
+  /// @brief The underlying representation type
   using value_type = T;
+
+  /// @brief The policy used to report domain constraint violations
   using error_policy = ErrorPolicy;
 
+  /// Default-constructs the wrapped value.
   [[nodiscard]] constrained() = default;
+
+  /**
+   * @brief Constructs the wrapper from a value of the underlying type.
+   * @param v the value to wrap
+   */
   [[nodiscard]] constexpr explicit(false) constrained(T v) noexcept : value_(v) {}
 
+  /**
+   * @brief Implicitly converts back to the underlying representation type.
+   * @return the wrapped underlying value
+   */
   [[nodiscard]] constexpr explicit(false) operator T() const noexcept { return value_; }
 
+  /// The wrapped underlying value.
+  /// @return the wrapped underlying value
   [[nodiscard]] constexpr T value() const noexcept { return value_; }
 
   // -- Unary arithmetic --
+
+  /**
+   * @brief Applies unary `+` to the wrapped value
+   * @param x the wrapped value to apply unary `+` to
+   * @return the wrapped result of applying unary `+` to @p x
+   */
   [[nodiscard]] friend constexpr auto operator+(const constrained& x)
     -> constrained<decltype(+std::declval<T>()), ErrorPolicy>
   {
@@ -238,6 +280,11 @@ public:
   // returns the same unsigned type by C++ rules; MSVC C4146 flags this even though it is the
   // documented behavior).
   MP_UNITS_DIAGNOSTIC_IGNORE_UNARY_MINUS_UNSIGNED
+  /**
+   * @brief Negates the wrapped value
+   * @param x the wrapped value to negate
+   * @return the wrapped result of negating @p x
+   */
   [[nodiscard]] friend constexpr auto operator-(const constrained& x)
     -> constrained<decltype(-std::declval<T>()), ErrorPolicy>
   {
@@ -246,6 +293,9 @@ public:
   MP_UNITS_DIAGNOSTIC_POP
 
   // -- Increment / decrement --
+
+  /// Pre-increments the wrapped value.
+  /// @return a reference to `*this`, after incrementing
   constexpr constrained& operator++()
     requires requires(T& v) {
       { ++v } -> std::same_as<T&>;
@@ -255,8 +305,18 @@ public:
     return *this;
   }
 
-  constexpr auto operator++(int) -> constrained<decltype(std::declval<T&>()++), ErrorPolicy> { return value_++; }
+  /**
+   * @brief Post-increments the wrapped value.
+   * @param tag unused; disambiguates this postfix overload from the prefix `operator++()`
+   * @return the value before incrementing, wrapped in `constrained`
+   */
+  constexpr auto operator++([[maybe_unused]] int tag) -> constrained<decltype(std::declval<T&>()++), ErrorPolicy>
+  {
+    return value_++;
+  }
 
+  /// Pre-decrements the wrapped value.
+  /// @return a reference to `*this`, after decrementing
   constexpr constrained& operator--()
     requires requires(T& v) {
       { --v } -> std::same_as<T&>;
@@ -266,9 +326,23 @@ public:
     return *this;
   }
 
-  constexpr auto operator--(int) -> constrained<decltype(std::declval<T&>()--), ErrorPolicy> { return value_--; }
+  /**
+   * @brief Post-decrements the wrapped value.
+   * @param tag unused; disambiguates this postfix overload from the prefix `operator--()`
+   * @return the value before decrementing, wrapped in `constrained`
+   */
+  constexpr auto operator--([[maybe_unused]] int tag) -> constrained<decltype(std::declval<T&>()--), ErrorPolicy>
+  {
+    return value_--;
+  }
 
   // -- Compound assignment --
+
+  /**
+   * @brief Adds @p rhs to the wrapped value.
+   * @param rhs the value to add
+   * @return a reference to `*this`, after the addition
+   */
   constexpr constrained& operator+=(const constrained& rhs)
     requires requires(T& a, const T b) {
       { a += b } -> std::same_as<T&>;
@@ -278,6 +352,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Subtracts @p rhs from the wrapped value.
+   * @param rhs the value to subtract
+   * @return a reference to `*this`, after the subtraction
+   */
   constexpr constrained& operator-=(const constrained& rhs)
     requires requires(T& a, const T b) {
       { a -= b } -> std::same_as<T&>;
@@ -287,6 +366,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Multiplies the wrapped value by @p rhs.
+   * @param rhs the value to multiply by
+   * @return a reference to `*this`, after the multiplication
+   */
   constexpr constrained& operator*=(const constrained& rhs)
     requires requires(T& a, const T b) {
       { a *= b } -> std::same_as<T&>;
@@ -296,6 +380,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Divides the wrapped value by @p rhs.
+   * @param rhs the value to divide by
+   * @return a reference to `*this`, after the division
+   */
   constexpr constrained& operator/=(const constrained& rhs)
     requires requires(T& a, const T b) {
       { a /= b } -> std::same_as<T&>;
@@ -305,6 +394,11 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Assigns the wrapped value to its remainder with respect to @p rhs.
+   * @param rhs the divisor
+   * @return a reference to `*this`, after the modulo operation
+   */
   constexpr constrained& operator%=(const constrained& rhs)
     requires requires(T& a, const T b) {
       { a %= b } -> std::same_as<T&>;

@@ -36,6 +36,12 @@ import std;
 MP_UNITS_EXPORT
 namespace mp_units {
 
+/**
+ * @brief Checks whether `v` compares equal to `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v == T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::equality_comparable_with<T>;
@@ -45,6 +51,12 @@ template<typename T>
   return v == T::zero();
 }
 
+/**
+ * @brief Checks whether `v` compares not equal to `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v != T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::equality_comparable_with<T>;
@@ -54,6 +66,12 @@ template<typename T>
   return v != T::zero();
 }
 
+/**
+ * @brief Checks whether `v` compares less than `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v < T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::three_way_comparable_with<T>;
@@ -63,6 +81,12 @@ template<typename T>
   return v < T::zero();
 }
 
+/**
+ * @brief Checks whether `v` compares greater than `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v > T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::three_way_comparable_with<T>;
@@ -72,6 +96,12 @@ template<typename T>
   return v > T::zero();
 }
 
+/**
+ * @brief Checks whether `v` compares less than or equal to `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v <= T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::three_way_comparable_with<T>;
@@ -81,6 +111,12 @@ template<typename T>
   return v <= T::zero();
 }
 
+/**
+ * @brief Checks whether `v` compares greater than or equal to `T::zero()`
+ *
+ * @param v The value to compare against `T::zero()`
+ * @return `true` if `v >= T::zero()`, `false` otherwise
+ */
 template<typename T>
   requires requires {
     { T::zero() } -> std::three_way_comparable_with<T>;

@@ -38,9 +38,15 @@ import std;
 
 namespace mp_units {
 
+/**
+ * @brief A named Magnitude constant identified by its symbol and, where supported, its value
+ */
 #if defined MP_UNITS_COMP_CLANG && MP_UNITS_COMP_CLANG < 18
 MP_UNITS_EXPORT template<symbol_text Symbol>
 #else
+/**
+ * @brief A named Magnitude constant identified by its symbol and, where supported, its value
+ */
 MP_UNITS_EXPORT template<symbol_text Symbol, long double Value>
   requires(Value > 0)
 #endif

@@ -219,6 +219,12 @@ struct magnitude_t {
 
 inline namespace cpo {
 
+/**
+ * @brief Customization point object computing the magnitude of a representation value
+ *
+ * Dispatches to a member `magnitude()`/`norm()`/`abs()`, a matching ADL call, `std::abs`, or the
+ * complex `modulus`, depending on which of those the argument type supports.
+ */
 MP_UNITS_EXPORT inline constexpr ::mp_units::detail::magnitude_impl::magnitude_t magnitude;
 
 }
@@ -384,7 +390,18 @@ MP_UNITS_DIAGNOSTIC_POP
 
 }  // namespace detail
 
+/**
+ * @brief Concept matching a representation type suitable for a quantity specification or character
+ *
+ * Satisfied by a type `T` that can hold values of a quantity described by `V`: matched by tensor
+ * order (scalar, vector, tensor) and by field (real, complex) against `V`, where `V` may be a
+ * quantity specification, a `quantity_character`, or one of its individual axes.
+ *
+ * @tparam T candidate representation type
+ * @tparam V quantity specification, quantity character, or character axis to match against
+ */
 #ifdef MP_UNITS_XCODE15_HACKS
+/// @brief Concept matching a representation type suitable for a quantity specification or character
 MP_UNITS_EXPORT template<typename T, auto V>
 concept RepresentationOf =
   detail::SomeRepresentation<T> && ((QuantitySpec<MP_UNITS_REMOVE_CONST(decltype(V))> &&
@@ -395,6 +412,7 @@ concept RepresentationOf =
 
 #else
 
+/// @brief Concept matching a representation type suitable for a quantity specification or character
 MP_UNITS_EXPORT template<typename T, auto V>
 concept RepresentationOf =
   (QuantitySpec<MP_UNITS_REMOVE_CONST(decltype(V))> &&

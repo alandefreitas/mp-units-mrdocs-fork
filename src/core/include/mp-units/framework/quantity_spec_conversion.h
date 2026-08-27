@@ -44,39 +44,100 @@ template<QuantitySpec From, QuantitySpec To>
   return detail::convertible(from, to) >= detail::specs_convertible_result::explicit_conversion_beyond_kind;
 }
 
+/**
+ * @brief Checks whether a quantity of quantity spec `From` can be cast to quantity spec `To`
+ *
+ * `castable` is a weaker requirement than @ref explicitly_convertible and is used to validate quantities
+ * belonging to the same kind but with otherwise unrelated equations.
+ *
+ * @tparam From source quantity specification type
+ * @tparam To target quantity specification type
+ * @param from source quantity specification value
+ * @param to target quantity specification value
+ * @return `true` if `from` can be cast to `to`
+ */
 template<QuantitySpec From, QuantitySpec To>
 [[nodiscard]] consteval bool castable(From from, To to)
 {
   return detail::convertible(from, to) >= detail::specs_convertible_result::cast;
 }
 
+/**
+ * @brief Checks whether two quantity specifications are convertible to each other in both directions
+ *
+ * @tparam QS1 first quantity specification type
+ * @tparam QS2 second quantity specification type
+ * @param qs1 first quantity specification value
+ * @param qs2 second quantity specification value
+ * @return `true` if `qs1` is implicitly convertible to `qs2` and `qs2` is implicitly convertible to `qs1`
+ */
 template<QuantitySpec QS1, QuantitySpec QS2>
 [[nodiscard]] consteval bool interconvertible(QS1 qs1, QS2 qs2)
 {
   return mp_units::implicitly_convertible(qs1, qs2) && mp_units::implicitly_convertible(qs2, qs1);
 }
 
+/**
+ * @brief Returns the kind of a quantity specification
+ *
+ * The kind is obtained by walking up to the root of the quantity's hierarchy tree.
+ *
+ * @tparam Q quantity specification type
+ * @param q quantity specification value
+ * @return the quantity kind of the argument
+ */
 template<QuantitySpec Q>
-[[nodiscard]] consteval detail::QuantityKindSpec auto get_kind(Q)
+[[nodiscard]] consteval detail::QuantityKindSpec auto get_kind(Q q)
 {
   return kind_of<detail::get_kind_tree_root(Q{})>;
 }
 
+/**
+ * @brief Checks whether a quantity specification is tagged as non-negative
+ *
+ * @tparam Q quantity specification type
+ * @param q quantity specification value
+ * @return `true` if quantities of `Q` can never hold a negative value
+ */
 template<QuantitySpec Q>
-[[nodiscard]] consteval bool is_non_negative(Q)
+[[nodiscard]] consteval bool is_non_negative(Q q)
 {
   return Q::_is_non_negative_;
 }
 
+/**
+ * @brief Returns the common quantity specification of a single quantity specification
+ *
+ * @param q a quantity specification value
+ * @return `q` unchanged
+ */
 [[nodiscard]] consteval QuantitySpec auto get_common_quantity_spec(QuantitySpec auto q) { return q; }
 
+/**
+ * @brief Returns the common quantity specification of two quantity specifications
+ *
+ * @tparam Q1 first quantity specification type
+ * @tparam Q2 second quantity specification type
+ * @param q1 first quantity specification value
+ * @param q2 second quantity specification value
+ * @return the strongest quantity specification that both arguments are convertible to
+ */
 template<QuantitySpec Q1, QuantitySpec Q2>
   requires(detail::have_common_quantity_spec(Q1{}, Q2{}))
-[[nodiscard]] consteval QuantitySpec auto get_common_quantity_spec(Q1, Q2)
+[[nodiscard]] consteval QuantitySpec auto get_common_quantity_spec(Q1 q1, Q2 q2)
 {
   return detail::get_common_quantity_spec_result<Q1, Q2>;
 }
 
+/**
+ * @brief Returns the common quantity specification of three or more quantity specifications
+ *
+ * @param q1 first quantity specification value
+ * @param q2 second quantity specification value
+ * @param q3 third quantity specification value
+ * @param rest any remaining quantity specification values
+ * @return the common quantity specification obtained by folding all arguments pairwise
+ */
 [[nodiscard]] consteval QuantitySpec auto get_common_quantity_spec(QuantitySpec auto q1, QuantitySpec auto q2,
                                                                    QuantitySpec auto q3, QuantitySpec auto... rest)
   requires requires { mp_units::get_common_quantity_spec(mp_units::get_common_quantity_spec(q1, q2), q3, rest...); }

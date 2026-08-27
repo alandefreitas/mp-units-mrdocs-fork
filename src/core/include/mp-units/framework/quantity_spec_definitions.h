@@ -338,18 +338,21 @@ concept QSProperty = !QuantitySpec<T>;
 
 MP_UNITS_EXPORT_BEGIN
 
+/// @brief Tag property marking a `quantity_spec` as the start of a new hierarchy tree of a kind
 inline constexpr struct is_kind {
-} is_kind;
+} is_kind;  ///< The unique instance of the `is_kind` tag property.
 
+/// @brief Tag property marking a `quantity_spec` as never holding a negative value
 inline constexpr struct non_negative {
-} non_negative;
+} non_negative;  ///< The unique instance of the `non_negative` tag property.
 
 // Cancels the `non_negative` a real-scalar child would otherwise inherit from its parent. Needed
 // where a quantity shares its parent's kind (and therefore its units) but not its domain: ISO
 // 80000-12 item 12-30 gives an effective mass that is negative near a band maximum, and it must
 // still be expressed in kilograms, which only a quantity of the mass kind may do.
+/// @brief Tag property canceling an inherited `non_negative` for a `quantity_spec`
 inline constexpr struct possibly_negative {
-} possibly_negative;
+} possibly_negative;  ///< The unique instance of the `possibly_negative` tag property.
 
 /**
  * @brief Quantity Specification
@@ -412,24 +415,32 @@ MP_UNITS_EXPORT_END
  * @tparam Args optionally a value of a `quantity_character` in case the base quantity should not be real scalar
  */
 #if MP_UNITS_API_NO_CRTP
+/// @brief Specialization defining a base quantity
 template<detail::BaseDimension auto Dim, detail::QSProperty auto... Args>
 struct quantity_spec<Dim, Args...> : detail::quantity_spec_interface {
 #else
+/// @brief Specialization defining a base quantity
 template<typename Self, detail::BaseDimension auto Dim, detail::QSProperty auto... Args>
 struct quantity_spec<Self, Dim, Args...> : detail::quantity_spec_interface<Self> {
 #endif
+  /// @brief The base type used to detect specializations of `quantity_spec`
   using _base_type_ = quantity_spec;
+  /// @brief The base dimension this quantity specification was defined from
   static constexpr detail::BaseDimension auto _dimension_ = Dim;
+  /// @brief The character of the quantity, real scalar unless overriden in `Args`
   static constexpr quantity_character _character_ = detail::quantity_character_init<Args...>(quantity_character{});
   static_assert(!mp_units::contains<struct non_negative, Args...>() || _character_ == quantity_character{},
                 "non_negative can only be applied to real scalar quantities");
   static_assert(!(mp_units::contains<struct non_negative, Args...>() &&
                   mp_units::contains<struct possibly_negative, Args...>()),
                 "non_negative and possibly_negative are mutually exclusive");
+  /// @brief Whether quantities of this specification can never hold a negative value
   static constexpr bool _is_non_negative_ = mp_units::contains<struct non_negative, Args...>();
 
+  /// @brief Deprecated accessor for `_dimension_`; use `get_dimension(qs)` instead
   [[deprecated("2.6.0: use `get_dimension(qs)` instead")]] static constexpr detail::BaseDimension auto dimension =
     _dimension_;
+  /// @brief Deprecated accessor for `_character_`; use `get_character(qs)` instead
   [[deprecated("2.6.0: use `get_character(qs)` instead")]] static constexpr quantity_character character = _character_;
 };
 
@@ -469,6 +480,7 @@ template<typename Self, detail::DerivedQuantitySpec auto Eq, detail::QSProperty 
 struct quantity_spec<Self, Eq, Args...> : detail::quantity_spec_interface<Self> {
 #endif
   using _base_type_ = quantity_spec;
+  /// @brief The quantity equation this specification was derived from
   static constexpr auto _equation_ = Eq;
   static constexpr Dimension auto _dimension_ = get_dimension(Eq);
 
@@ -533,6 +545,7 @@ template<typename Self, detail::NamedQuantitySpec auto QS, detail::QSProperty au
 struct quantity_spec<Self, QS, Args...> : detail::propagate_equation<QS>, detail::quantity_spec_interface<Self> {
 #endif
   using _base_type_ = quantity_spec;
+  /// @brief The parent quantity specification this leaf was derived from
   static constexpr auto _parent_ = QS;
   static constexpr Dimension auto _dimension_ = get_dimension(_parent_);
   static constexpr quantity_character _character_ = detail::quantity_character_init<Args...>(get_character(QS));
@@ -549,62 +562,50 @@ struct quantity_spec<Self, QS, Args...> : detail::propagate_equation<QS>, detail
   [[deprecated("2.6.0: use `get_character(qs)` instead")]] static constexpr quantity_character character = _character_;
 };
 
-// clang-format off
 /**
- * @brief Specialization defining a leaf derived quantity in the hierarchy and refining paren't equation
+ * @brief Specialization defining a leaf derived quantity in the hierarchy with a refined equation
  *
- * Quantities of the same kind form a hierarchy. This specialization adds new leaf to such a tree which
- * can later be used as a parent by other quantities. Additionally, this definition adds additional
- * constraints on the derived quantity's equation.
- *
- * Such quantities obtain the character from the derived quantity equation.
- *
- * User should derive a strong type from this class template rather than use it directly in the source code.
- * For example:
- *
- * @code{.cpp}
- * inline constexpr struct angular_measure : quantity_spec<dimensionless, arc_length / radius, is_kind> {} angular_measure;
- * inline constexpr struct velocity : quantity_spec<speed, displacement / duration> {} velocity;
- * inline constexpr struct weight : quantity_spec<force, mass * acceleration_of_free_fall> {} weight;
- * inline constexpr struct kinetic_energy : quantity_spec<mechanical_energy, mass * pow<2>(speed)> {} kinetic_energy;
- * @endcode
- *
- * @note A common convention in this library is to assign the same name for a type and an object of this type.
- *       Besides defining them user never works with the types in the source code. All operations
- *       are done on the objects. Contrarily, the types are the only one visible in the compilation
- *       errors. Having them of the same names improves user experience and somehow blurs those separate domains.
- *
- * @tparam Q quantity specification of a parent quantity
+ * @tparam QS quantity specification of a parent quantity
+ * @tparam Eq the derived quantity equation this specification refines
  * @tparam Args optionally a value of `quantity_character` in case the base quantity should not
  *              be real scalar or `is_kind` in case the quantity starts a new hierarchy tree of a kind
  */
-// clang-format on
 #if MP_UNITS_API_NO_CRTP
+/// @brief Specialization defining a leaf derived quantity in the hierarchy with a refined equation
 template<detail::NamedQuantitySpec auto QS, detail::DerivedQuantitySpec auto Eq, detail::QSProperty auto... Args>
   requires(mp_units::explicitly_convertible(Eq, QS))
 struct quantity_spec<QS, Eq, Args...> : detail::quantity_spec_interface {
 #else
+/// @brief Specialization defining a leaf derived quantity in the hierarchy with a refined equation
 template<typename Self, detail::NamedQuantitySpec auto QS, detail::DerivedQuantitySpec auto Eq,
          detail::QSProperty auto... Args>
   requires(mp_units::explicitly_convertible(Eq, QS))
 struct quantity_spec<Self, QS, Eq, Args...> : detail::quantity_spec_interface<Self> {
 #endif
+  /// @brief The base type used to detect specializations of `quantity_spec`
   using _base_type_ = quantity_spec;
+  /// @brief The parent quantity specification this leaf was derived from
   static constexpr auto _parent_ = QS;
+  /// @brief The derived quantity equation this specification refines
   static constexpr auto _equation_ = Eq;
+  /// @brief The dimension inherited from the parent quantity specification
   static constexpr Dimension auto _dimension_ = get_dimension(_parent_);
 
+  /// @brief The character of the quantity, derived from the equation unless overriden in `Args`
   static constexpr quantity_character _character_ = detail::quantity_character_init<Args...>(get_character(Eq));
   static_assert(!mp_units::contains<struct non_negative, Args...>() || _character_ == quantity_character{},
                 "non_negative can only be applied to real scalar quantities");
   static_assert(!(mp_units::contains<struct non_negative, Args...>() &&
                   mp_units::contains<struct possibly_negative, Args...>()),
                 "non_negative and possibly_negative are mutually exclusive");
+  /// @brief Whether quantities of this specification can never hold a negative value
   static constexpr bool _is_non_negative_ =
     mp_units::contains<struct non_negative, Args...>() || (!mp_units::contains<struct possibly_negative, Args...>() &&
                                                            _character_ == quantity_character{} && QS._is_non_negative_);
 
+  /// @brief Deprecated accessor for `_dimension_`; use `get_dimension(qs)` instead
   [[deprecated("2.6.0: use `get_dimension(qs)` instead")]] static constexpr Dimension auto dimension = _dimension_;
+  /// @brief Deprecated accessor for `_character_`; use `get_character(qs)` instead
   [[deprecated("2.6.0: use `get_character(qs)` instead")]] static constexpr quantity_character character = _character_;
 };
 
@@ -704,6 +705,11 @@ template<QuantitySpec Q>
 
 }  // namespace detail
 
+/**
+ * @brief Specialization defining the quantity kind of the hierarchy tree rooted at `Q`
+ *
+ * @tparam Q the root quantity specification of the kind
+ */
 template<QuantitySpec Q>
   requires(!detail::QuantityKindSpec<Q>) && (detail::get_kind_tree_root(Q{}) == Q{})
 #if MP_UNITS_API_NO_CRTP
@@ -712,14 +718,22 @@ struct kind_of_<Q> : Q::_base_type_ {
 #else
 struct kind_of_<Q> : quantity_spec<kind_of_<Q>, Q{}>::_base_type_ {
 #endif
+  /// @brief The base type used to detect specializations of `kind_of_`
   using _base_type_ = kind_of_;
+  /// @brief The root quantity specification this kind was created from
   static constexpr auto _quantity_spec_ = Q{};
   // A kind encompasses the *entire* quantity tree — including vector quantities and signed
   // coordinates (e.g. displacement, altitude, depth) — so it can never be universally
   // non-negative, even when the tree root carries a non_negative tag.
+  /// @brief Always `false`, as a kind can never be universally non-negative
   static constexpr bool _is_non_negative_ = false;
 };
 
+/**
+ * @brief The quantity kind of the hierarchy tree rooted at the quantity specification `Q`
+ *
+ * @tparam Q the root quantity specification of the kind
+ */
 MP_UNITS_EXPORT template<QuantitySpec auto Q>
   requires requires { typename kind_of_<decltype(Q)>; }
 constexpr kind_of_<MP_UNITS_REMOVE_CONST(decltype(Q))> kind_of;

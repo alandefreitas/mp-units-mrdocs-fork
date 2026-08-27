@@ -61,19 +61,24 @@ struct conditional_impl<true> {
 
 MP_UNITS_EXPORT_BEGIN
 
+/// Alias for `T` if `B` is `true`, otherwise `F` (equivalent to `std::conditional_t<B, T, F>`)
 template<bool B, typename T, typename F>
 using conditional = detail::conditional_impl<B>::template type<T, F>;
 
 // is_specialization_of
+/// Whether `T` is a specialization of the class template `Type`, which takes a pack of type parameters
 template<typename T, template<typename...> typename Type>
 constexpr bool is_specialization_of = false;
 
+/// Specialization confirming that `Type<Params...>` is a specialization of `Type`
 template<typename... Params, template<typename...> typename Type>
 constexpr bool is_specialization_of<Type<Params...>, Type> = true;
 
+/// Whether `T` is a specialization of the class template `Type`, which takes a pack of non-type (`auto`) parameters
 template<typename T, template<auto...> typename Type>
 constexpr bool is_specialization_of_v = false;
 
+/// Specialization confirming that `Type<Params...>` is a specialization of `Type`
 template<auto... Params, template<auto...> typename Type>
 constexpr bool is_specialization_of_v<Type<Params...>, Type> = true;
 
@@ -90,9 +95,11 @@ void to_base_specialization_of_v(const volatile Type<Params...>*);
 
 }  // namespace detail
 
+/// Whether `T` is derived from some specialization of the class template `Type`, which takes type parameters
 template<typename T, template<typename...> typename Type>
 constexpr bool is_derived_from_specialization_of = requires(T* t) { detail::to_base_specialization_of<Type>(t); };
 
+/// Whether `T` is derived from some specialization of the class template `Type`, which takes non-type (`auto`) parameters
 template<typename T, template<auto...> typename Type>
 constexpr bool is_derived_from_specialization_of_v = requires(T* t) { detail::to_base_specialization_of_v<Type>(t); };
 
@@ -100,6 +107,7 @@ constexpr bool is_derived_from_specialization_of_v = requires(T* t) { detail::to
 // is_scoped_enum
 #if __cpp_lib_is_scoped_enum
 
+/// Whether `T` is a scoped enumeration type
 template<class T>
 constexpr bool is_scoped_enum_v = std::is_scoped_enum_v<T>;
 
@@ -123,6 +131,13 @@ constexpr bool is_scoped_enum_v = is_scoped_enum<T>::value;
 
 #endif
 
+/**
+ * @brief Checks whether the type `T` matches the type of any of the non-type template arguments `Vs`
+ *
+ * @tparam T The type to look for among the types of `Vs`
+ * @tparam Vs The non-type template arguments whose types are checked against `T`
+ * @return `true` if `T` matches the type of at least one of `Vs`, `false` otherwise
+ */
 template<typename T, auto... Vs>
 [[nodiscard]] consteval bool contains()
 {
@@ -131,30 +146,68 @@ template<typename T, auto... Vs>
 
 // the first list element is mandatory to disambiguate from the empty-pack case of the
 // NTTP-values overload above
+/**
+ * @brief Checks whether the type `T` is present in the type pack `T1, Ts...`
+ *
+ * @tparam T The type to look for
+ * @tparam T1 The first type of the pack to search
+ * @tparam Ts The remaining types of the pack to search
+ * @return `true` if `T` is the same as `T1` or one of `Ts`, `false` otherwise
+ */
 template<typename T, typename T1, typename... Ts>
 [[nodiscard]] consteval bool contains()
 {
   return std::is_same_v<T, T1> || (false || ... || std::is_same_v<T, Ts>);
 }
 
+/**
+ * @brief Checks whether any of the types `Ts` is a specialization of the class template `T`
+ *
+ * @tparam T The class template (taking type parameters) to look for
+ * @tparam Ts The types to check
+ * @return `true` if at least one of `Ts` is a specialization of `T`, `false` otherwise
+ */
 template<template<typename...> typename T, typename... Ts>
 [[nodiscard]] consteval bool contains()
 {
   return (false || ... || is_specialization_of<Ts, T>);
 }
 
+/**
+ * @brief Checks whether any of the types `Ts` is a specialization of the class template `T`
+ *
+ * @tparam T The class template (taking non-type, `auto`, parameters) to look for
+ * @tparam Ts The types to check
+ * @return `true` if at least one of `Ts` is a specialization of `T`, `false` otherwise
+ */
 template<template<auto...> typename T, typename... Ts>
 [[nodiscard]] consteval bool contains()
 {
   return (false || ... || is_specialization_of_v<Ts, T>);
 }
 
+/**
+ * @brief Returns the non-type template argument `V`, whose type is `T`
+ *
+ * @tparam T The type that `V` must have
+ * @tparam V The non-type template argument to return
+ * @return The value of `V`
+ */
 template<typename T, std::same_as<T> auto V>
 [[nodiscard]] consteval auto get()
 {
   return V;
 }
 
+/**
+ * @brief Returns the first of the non-type template arguments `V1, V2, Vs...` whose type matches `T`
+ *
+ * @tparam T The type to look for among the types of `V1, V2, Vs...`
+ * @tparam V1 The first non-type template argument to check
+ * @tparam V2 The second non-type template argument to check
+ * @tparam Vs The remaining non-type template arguments to check
+ * @return The value of the first argument whose type matches `T`
+ */
 template<typename T, auto V1, auto V2, auto... Vs>
 [[nodiscard]] consteval auto get()
 {
@@ -164,6 +217,13 @@ template<typename T, auto V1, auto V2, auto... Vs>
     return get<T, V2, Vs...>();
 }
 
+/**
+ * @brief Returns a default-constructed instance of `T1`, given it is a specialization of the class template `T`
+ *
+ * @tparam T The class template (taking type parameters) that `T1` must specialize
+ * @tparam T1 The type to return, required to be a specialization of `T`
+ * @return A default-constructed instance of `T1`
+ */
 template<template<typename...> typename T, typename T1>
   requires is_specialization_of<T1, T>
 [[nodiscard]] consteval auto get()
@@ -171,6 +231,15 @@ template<template<typename...> typename T, typename T1>
   return T1{};
 }
 
+/**
+ * @brief Returns a default-constructed instance of the first of `T1, T2, Ts...` that is a specialization of `T`
+ *
+ * @tparam T The class template (taking type parameters) to look for
+ * @tparam T1 The first type to check
+ * @tparam T2 The second type to check
+ * @tparam Ts The remaining types to check
+ * @return A default-constructed instance of the first matching type
+ */
 template<template<typename...> typename T, typename T1, typename T2, typename... Ts>
 [[nodiscard]] consteval auto get()
 {
@@ -180,6 +249,13 @@ template<template<typename...> typename T, typename T1, typename T2, typename...
     return get<T, T2, Ts...>();
 }
 
+/**
+ * @brief Returns a default-constructed instance of `T1`, given it is a specialization of the class template `T`
+ *
+ * @tparam T The class template (taking non-type, `auto`, parameters) that `T1` must specialize
+ * @tparam T1 The type to return, required to be a specialization of `T`
+ * @return A default-constructed instance of `T1`
+ */
 template<template<auto...> typename T, typename T1>
   requires is_specialization_of_v<T1, T>
 [[nodiscard]] consteval auto get()
@@ -187,6 +263,15 @@ template<template<auto...> typename T, typename T1>
   return T1{};
 }
 
+/**
+ * @brief Returns a default-constructed instance of the first of `T1, T2, Ts...` that is a specialization of `T`
+ *
+ * @tparam T The class template (taking non-type, `auto`, parameters) to look for
+ * @tparam T1 The first type to check
+ * @tparam T2 The second type to check
+ * @tparam Ts The remaining types to check
+ * @return A default-constructed instance of the first matching type
+ */
 template<template<auto...> typename T, typename T1, typename T2, typename... Ts>
 [[nodiscard]] consteval auto get()
 {
