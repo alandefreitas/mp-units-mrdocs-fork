@@ -12,13 +12,4 @@ implementation-defined:
   - 'mp_units::**::detail'
 multipage: true
 generator: adoc
-warnings: true
-warn-if-undocumented: true
-warn-no-paramdoc: true
-warn-unnamed-param: true
-warn-if-undoc-enum-val: true
-warn-if-doc-error: true
-warn-broken-ref: true
-auto-function-metadata: false
-warn-if-undocumented-namespace: true
 non-standard-attributes: false
